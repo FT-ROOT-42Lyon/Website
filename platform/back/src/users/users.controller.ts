@@ -2,12 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from "@nestjs/common";
-import { IsBoolean } from "class-validator";
+import {
+  IsBoolean,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
 import { UsersService } from "./users.service";
 import { JwtAuthGuard } from "../core/guards/jwt-auth.guard";
 import { StaffGuard } from "../core/guards/staff.guard";
@@ -19,6 +28,24 @@ import {
 class SetRoleDto {
   @IsBoolean()
   isStaff!: boolean;
+}
+
+class CreateFromIntraDto {
+  @IsString()
+  @MinLength(1)
+  login!: string;
+}
+
+class AddSolveDto {
+  @IsString()
+  @MinLength(1)
+  challengeSlug!: string;
+
+  // Optional ISO datetime — when omitted the backend uses "now". Allows staff
+  // to back-date a validation so it falls inside an event window.
+  @IsOptional()
+  @IsISO8601()
+  solvedAt?: string;
 }
 
 function serialize(user: {
@@ -62,6 +89,14 @@ export class UsersController {
     return users.map(serialize);
   }
 
+  // Pre-create a user from their 42 login (admin pre-population). The actual
+  // user can then log in via OAuth and the row will be matched by ft42Id.
+  @Post()
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async createFromIntra(@Body() body: CreateFromIntraDto) {
+    return serialize(await this.users.createFromIntra(body.login));
+  }
+
   @Get(":login")
   @UseGuards(JwtAuthGuard)
   async byLogin(@Param("login") login: string) {
@@ -92,5 +127,51 @@ export class UsersController {
       );
     }
     return serialize(await this.users.setStaff(target.id, body.isStaff));
+  }
+
+  // Staff-side: manually validate a challenge for a user. Score is credited
+  // identically to a real flag submission.
+  @Post(":login/solves")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async addSolve(
+    @Param("login") login: string,
+    @Body() body: AddSolveDto,
+  ) {
+    await this.users.addSolve(
+      login,
+      body.challengeSlug,
+      body.solvedAt ? new Date(body.solvedAt) : undefined,
+    );
+  }
+
+  // Staff-side: revoke a solve. Score is decremented by the amount that was
+  // awarded at solve time.
+  @Delete(":login/solves/:challengeSlug")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async removeSolve(
+    @Param("login") login: string,
+    @Param("challengeSlug") challengeSlug: string,
+  ) {
+    await this.users.removeSolve(login, challengeSlug);
+  }
+
+  // Delete a user. Self-deletion is blocked so a staff member can't lock
+  // themselves out by mistake.
+  @Delete(":login")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async remove(
+    @CurrentUser() current: AuthUser,
+    @Param("login") login: string,
+  ) {
+    const target = await this.users.getByLogin(login);
+    if (target.id === current.id) {
+      throw new BadRequestException(
+        "Tu ne peux pas supprimer ton propre compte",
+      );
+    }
+    await this.users.delete(login);
   }
 }

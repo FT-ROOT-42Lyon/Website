@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -23,13 +25,13 @@ class CreateCategoryDto {
   @MaxLength(50)
   name!: string;
 
+  // Description and exploitDescription may be empty — staff can fill them in
+  // later. Cap is kept to avoid abuse.
   @IsString()
-  @MinLength(1)
   @MaxLength(2000)
   description!: string;
 
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
   exploitDescription!: string;
 }
@@ -43,13 +45,11 @@ class UpdateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(2000)
   description?: string;
 
   @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
   exploitDescription?: string;
 }
@@ -102,5 +102,12 @@ export class CategoriesController {
     @Body() body: UpdateCategoryDto,
   ) {
     return serialize(await this.categories.update(slug, body));
+  }
+
+  @Delete(":slug")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async remove(@Param("slug") slug: string) {
+    await this.categories.delete(slug);
   }
 }

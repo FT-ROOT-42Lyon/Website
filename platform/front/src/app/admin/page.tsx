@@ -27,16 +27,12 @@ export default function AdminHomePage() {
           <p>Liste de tous les challenges et création de nouveaux sujets.</p>
           <span className="card-link">Ouvrir →</span>
         </Link>
-        <Link href="/admin/brackets" className="card card-link-block">
-          <p className="card-tag">// événements</p>
-          <h3>Brackets</h3>
-          <p>Groupes d&apos;utilisateurs liés à un événement et leurs scores.</p>
-          <span className="card-link">Ouvrir →</span>
-        </Link>
         <Link href="/admin/events" className="card card-link-block">
           <p className="card-tag">// événements</p>
           <h3>Événements</h3>
-          <p>Créer et gérer les événements du club (CTF, workshops, ...).</p>
+          <p>
+            Créer et gérer les événements : membres, challenges associés, dates.
+          </p>
           <span className="card-link">Ouvrir →</span>
         </Link>
       </div>

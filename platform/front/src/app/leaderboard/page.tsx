@@ -8,12 +8,12 @@ import { LeaderboardTable } from "~/components/Leaderboard";
 import { ScoreTimeline } from "~/components/charts/ScoreTimeline";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
-import { useBrackets } from "~/lib/brackets-context";
+import { useEvents } from "~/lib/events-context";
 import { Footer } from "~/components/Footer";
 
 export default function GlobalLeaderboardPage() {
   const { me, loading: authLoading } = useAuth();
-  const { brackets } = useBrackets();
+  const { events } = useEvents();
   const router = useRouter();
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
   const [timeline, setTimeline] = useState<TimelineSeries[] | null>(null);
@@ -85,27 +85,29 @@ export default function GlobalLeaderboardPage() {
           <ScoreTimeline series={timeline} showLegend />
         )}
 
-        {brackets.length > 0 && (
+        {events.length > 0 && (
           <>
             <p className="section-title" style={{ marginTop: "3rem" }}>
-              Leaderboards par bracket
+              Leaderboards par événement
             </p>
             <div className="cards">
-              {brackets.map((b) => (
+              {events.map((e) => (
                 <Link
-                  key={b.slug}
-                  href={`/leaderboard/brackets/${b.slug}`}
+                  key={e.slug}
+                  href={`/leaderboard/events/${e.slug}`}
                   className="card card-link-block"
                 >
-                  <p className="card-tag">// bracket</p>
-                  <h3>{b.name}</h3>
-                  <p>
-                    {b.description.length > 140
-                      ? b.description.slice(0, 140) + "..."
-                      : b.description}
-                  </p>
+                  <p className="card-tag">// événement</p>
+                  <h3>{e.name}</h3>
+                  {e.description && (
+                    <p>
+                      {e.description.length > 140
+                        ? e.description.slice(0, 140) + "..."
+                        : e.description}
+                    </p>
+                  )}
                   <span className="card-link">
-                    Voir ({b.memberCount}) →
+                    Voir ({e.memberCount}) →
                   </span>
                 </Link>
               ))}

@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -220,9 +222,9 @@ export class ChallengesController {
     const description = (body.description ?? "").trim();
     const categorySlug = (body.categorySlug ?? "").trim();
     const flag = (body.flag ?? "").trim();
-    if (!title || !description || !categorySlug) {
+    if (!title || !categorySlug) {
       throw new BadRequestException(
-        "title, description and categorySlug are required",
+        "title and categorySlug are required",
       );
     }
     if (!flag) {
@@ -284,5 +286,12 @@ export class ChallengesController {
         newLinks,
       }),
     );
+  }
+
+  @Delete(":slug")
+  @HttpCode(204)
+  @UseGuards(StaffGuard)
+  async remove(@Param("slug") slug: string) {
+    await this.challenges.delete(slug);
   }
 }

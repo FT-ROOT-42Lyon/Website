@@ -55,10 +55,9 @@ export default function NewCategoryPage() {
         </label>
 
         <label className="form-field">
-          <span>Description</span>
+          <span>Description (optionnelle)</span>
           <textarea
             value={description}
-            required
             rows={4}
             maxLength={2000}
             onChange={(e) => setDescription(e.target.value)}
@@ -67,11 +66,10 @@ export default function NewCategoryPage() {
         </label>
 
         <label className="form-field">
-          <span>Exploits (résumé court)</span>
+          <span>Exploits (optionnel, résumé court)</span>
           <input
             type="text"
             value={exploitDescription}
-            required
             maxLength={200}
             onChange={(e) => setExploitDescription(e.target.value)}
             placeholder="ex: AES, RSA, hash collisions"

@@ -1333,6 +1333,44 @@ code {
   .lb-row { grid-template-columns: 40px 1fr 80px; }
 }
 
+/* ─── Event detail: challenges grouped by category ───────────────────── */
+.event-cat-block {
+  margin-bottom: 2rem;
+}
+
+.event-cat-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.event-cat-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--red);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.event-cat-name:hover { color: var(--text); }
+
+.event-cat-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* On this page we don't display a per-user solve status, so the chal-list-row
+   grid drops to 3 columns (title / difficulty / score). */
+.event-cat-block .chal-list-row { grid-template-columns: 2fr 1fr 0.7fr; }
+.event-cat-block .chal-list-link { border-left-color: var(--red); }
+.event-cat-block .chal-list-link:hover { background: var(--bg3); }
+
 /* ─── Solved pill on challenge detail ────────────────────────────────── */
 .solved-pill {
   display: inline-block;
@@ -1534,6 +1572,12 @@ code {
   border: 1px solid var(--solved);
   color: var(--solved);
   background: var(--solved-dim);
+}
+
+.event-card-badge-past {
+  border-color: var(--muted);
+  color: var(--muted);
+  background: transparent;
 }
 
 .event-card h3 {
@@ -2021,6 +2065,218 @@ code {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   margin-left: 0.5rem;
+}
+
+/* ─── Danger zone on edit pages ──────────────────────────────────────── */
+.danger-zone {
+  margin-top: 3rem;
+  padding: 1.5rem 1.8rem;
+  background: var(--bg2);
+  border: 1px solid var(--red);
+  border-left: 3px solid var(--red);
+  max-width: 720px;
+}
+
+.danger-zone-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 0.6rem;
+}
+
+.danger-zone-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--red);
+  color: #000;
+}
+
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── Admin user edit page ───────────────────────────────────────────── */
+.admin-user-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.5rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red);
+}
+
+.admin-user-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+.admin-user-info { min-width: 0; }
+
+.admin-user-role {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+
+.admin-user-role-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .admin-user-card { grid-template-columns: auto 1fr; }
+  .admin-user-role {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.8rem;
+  }
+}
+
+/* ─── Add-solve row ──────────────────────────────────────────────────── */
+.solve-add-row,
+.event-add-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  max-width: 720px;
+  margin-bottom: 1rem;
+}
+
+.event-add-row select { width: 100%; }
+
+.solve-add-grid {
+  display: grid;
+  grid-template-columns: 1fr 220px auto;
+  gap: 0.5rem;
+  max-width: 900px;
+}
+
+.solve-add-grid select,
+.solve-add-grid input {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .solve-add-grid { grid-template-columns: 1fr; }
+}
+
+.solve-add-row select {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .solve-add-row { grid-template-columns: 1fr; }
+}
+
+/* ─── Solves table ───────────────────────────────────────────────────── */
+.solves-table {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+}
+
+.solve-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 0.5fr 1.2fr 40px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.solve-row:last-child { border-bottom: none; }
+
+.solve-row-head {
+  background: var(--bg3);
+  color: var(--red);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.solve-title {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.solve-title:hover { color: var(--red); }
+
+.solve-dim { color: var(--muted); }
+.solve-num { text-align: right; color: var(--red); }
+.solve-actions { display: flex; justify-content: center; }
+
+@media (max-width: 768px) {
+  .solve-row { grid-template-columns: 1.5fr 0.6fr 40px; }
+  .solve-row > div:nth-child(2),
+  .solve-row > div:nth-child(3),
+  .solve-row > div:nth-child(5) { display: none; }
+}
+
+/* ─── Admin: pre-create user from intra 42 ───────────────────────────── */
+.intra-add-form {
+  margin-bottom: 2rem;
+  max-width: 720px;
+}
+
+.intra-add-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.intra-add-row input {
+  font-family: var(--mono);
+  font-size: 14px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.8rem;
+}
+
+.intra-add-row input:focus {
+  border-color: var(--red);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .intra-add-row { grid-template-columns: 1fr; }
 }
 
 /* ─── Footer ─────────────────────────────────────────────────────────── */

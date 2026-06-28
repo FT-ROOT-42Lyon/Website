@@ -5,18 +5,15 @@ import { useRouter } from "next/navigation";
 import type { Event } from "@ft-root/shared";
 import { api } from "~/lib/api";
 import { useEvents } from "~/lib/events-context";
-import { useBrackets } from "~/lib/brackets-context";
 
 export default function NewEventPage() {
   const router = useRouter();
   const { refresh } = useEvents();
-  const { brackets } = useBrackets();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
-  const [bracketSlug, setBracketSlug] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,10 +30,8 @@ export default function NewEventPage() {
     const fd = new FormData();
     fd.append("name", name);
     fd.append("description", description);
-    // datetime-local gives a "YYYY-MM-DDTHH:MM" local string; normalize to ISO.
     fd.append("startsAt", new Date(startsAt).toISOString());
     fd.append("endsAt", new Date(endsAt).toISOString());
-    if (bracketSlug) fd.append("bracketSlug", bracketSlug);
     if (image) fd.append("image", image);
 
     setSubmitting(true);
@@ -58,6 +53,9 @@ export default function NewEventPage() {
   return (
     <>
       <p className="section-title">Nouvel événement</p>
+      <p style={{ color: "var(--muted)", fontFamily: "var(--mono)", fontSize: 12, marginBottom: "1.5rem" }}>
+        // membres et challenges associés se règlent ensuite depuis l&apos;édition
+      </p>
 
       <form className="form" onSubmit={handleSubmit}>
         <label className="form-field">
@@ -74,10 +72,9 @@ export default function NewEventPage() {
         </label>
 
         <label className="form-field">
-          <span>Description</span>
+          <span>Description (optionnelle)</span>
           <textarea
             value={description}
-            required
             rows={5}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Présentation de l'événement."
@@ -107,34 +104,13 @@ export default function NewEventPage() {
         </div>
 
         <label className="form-field">
-          <span>Bracket associé (optionnel)</span>
-          <select
-            value={bracketSlug}
-            onChange={(e) => setBracketSlug(e.target.value)}
-          >
-            <option value="">— aucun —</option>
-            {brackets.map((b) => (
-              <option key={b.slug} value={b.slug}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          <small>
-            Les utilisateurs du bracket verront leur score crédité pour les
-            challenges validés.
-          </small>
-        </label>
-
-        <label className="form-field">
-          <span>Image (optionnel)</span>
+          <span>Image (optionnelle)</span>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setImage(e.target.files?.[0] ?? null)}
           />
-          {image && (
-            <small>Sélectionné : {image.name}</small>
-          )}
+          {image && <small>Sélectionné : {image.name}</small>}
         </label>
 
         {error && <div className="login-error">{error}</div>}

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "~/lib/auth-context";
 import { CategoriesProvider } from "~/lib/categories-context";
-import { BracketsProvider } from "~/lib/brackets-context";
 import { EventsProvider } from "~/lib/events-context";
 import { Nav } from "~/components/Nav";
 
@@ -47,12 +46,10 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <CategoriesProvider>
-            <BracketsProvider>
-              <EventsProvider>
-                <Nav />
-                {children}
-              </EventsProvider>
-            </BracketsProvider>
+            <EventsProvider>
+              <Nav />
+              {children}
+            </EventsProvider>
           </CategoriesProvider>
         </AuthProvider>
       </body>

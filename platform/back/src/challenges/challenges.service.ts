@@ -11,6 +11,7 @@ import { PrismaService } from "../core/prisma/prisma.service";
 import { slugify } from "../core/slug";
 import { UPLOADS_DIR } from "../core/uploads";
 import { flagMatches, hashFlag } from "../core/flag";
+import { findScoringEventIds } from "../core/scoring";
 
 export interface NewFile {
   label: string;
@@ -182,9 +183,11 @@ export class ChallengesService {
   }
 
   // ─── Flag submission ───────────────────────────────────────────────────────
-  // On a correct submission we credit the user's global score and bump every
-  // bracket they belong to. All writes happen in a single transaction so a
-  // partial increment can't leave the leaderboards desynced.
+  // On a correct submission we credit the user's global score and, if the
+  // challenge belongs to an event the user is part of and the submission lands
+  // within the event window, that event's per-member score as well. All writes
+  // happen in a single transaction so a partial increment can't leave the
+  // leaderboards desynced.
   async submitFlag(slug: string, userId: number, flag: string) {
     const challenge = await this.prisma.challenge.findUnique({
       where: { slug },
@@ -208,22 +211,35 @@ export class ChallengesService {
       return { correct: true, alreadySolved: true, scoreAwarded: 0 };
     }
 
+    const solvedAt = new Date();
+    const scoringEventIds = await findScoringEventIds(
+      this.prisma,
+      userId,
+      challenge.id,
+      solvedAt,
+    );
+
     await this.prisma.$transaction([
       this.prisma.challengeSolve.create({
         data: {
           userId,
           challengeId: challenge.id,
           scoreAwarded: challenge.score,
+          solvedAt,
         },
       }),
       this.prisma.user.update({
         where: { id: userId },
         data: { score: { increment: challenge.score } },
       }),
-      this.prisma.bracketMember.updateMany({
-        where: { userId },
-        data: { score: { increment: challenge.score } },
-      }),
+      ...(scoringEventIds.length > 0
+        ? [
+            this.prisma.eventMember.updateMany({
+              where: { userId, eventId: { in: scoringEventIds } },
+              data: { score: { increment: challenge.score } },
+            }),
+          ]
+        : []),
     ]);
 
     return {
@@ -231,6 +247,28 @@ export class ChallengesService {
       alreadySolved: false,
       scoreAwarded: challenge.score,
     };
+  }
+
+  // Removes a challenge entirely: file resources are unlinked from disk first,
+  // then the row is deleted. ChallengeResource and ChallengeSolve rows cascade
+  // away. Existing User.score is left untouched on purpose — rolling back a
+  // historical solve is more confusing than helpful.
+  async delete(slug: string) {
+    const challenge = await this.prisma.challenge.findUnique({
+      where: { slug },
+      include: { resources: true },
+    });
+    if (!challenge) throw new NotFoundException("Challenge not found");
+
+    await Promise.all(
+      challenge.resources
+        .filter((r) => r.type === "FILE")
+        .map((r) =>
+          unlink(join(UPLOADS_DIR, r.target)).catch(() => {}),
+        ),
+    );
+
+    await this.prisma.challenge.delete({ where: { id: challenge.id } });
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────

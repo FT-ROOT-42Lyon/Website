@@ -8,8 +8,6 @@ datasource db {
 }
 
 // ─── Identity ────────────────────────────────────────────────────────────────
-// All users authenticate exclusively through 42 intra OAuth, so `login` (their
-// 42 handle) is the primary external identifier. No password column on purpose.
 model User {
   id          Int       @id @default(autoincrement())
   ft42Id      Int       @unique @map("ft42_id")
@@ -17,22 +15,19 @@ model User {
   email       String
   displayName String?   @map("display_name")
   avatarUrl   String?   @map("avatar_url")
-  // Staff flag — manually granted via DB/admin tooling for now.
   isStaff     Boolean   @default(false) @map("is_staff")
-  // Global score, independent of brackets. Lifetime points across the platform.
+  // Global score = sum of every solve, regardless of event.
   score       Int       @default(0)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  sessions       Session[]
-  bracketMembers BracketMember[]
-  solves         ChallengeSolve[]
+  sessions     Session[]
+  eventMembers EventMember[]
+  solves       ChallengeSolve[]
 
   @@map("users")
 }
 
-// One row per active refresh token. `jti` is the token's unique id; rotating
-// the refresh token deletes the old row and creates a new one.
 model Session {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
@@ -47,9 +42,6 @@ model Session {
   @@map("sessions")
 }
 
-// Short-lived nonce stored when we generate the 42 OAuth URL. Verified and
-// consumed when the callback hits the backend — protects against CSRF on the
-// OAuth flow.
 model OAuthState {
   id        Int      @id @default(autoincrement())
   state     String   @unique
@@ -60,15 +52,12 @@ model OAuthState {
 }
 
 // ─── Challenge catalog ───────────────────────────────────────────────────────
-// Categories outlive events: an event picks among them or adds exclusive
-// challenges that later get folded back in.
 model Category {
   id                 Int      @id @default(autoincrement())
   slug               String   @unique
   name               String   @unique
-  description        String
-  // Short comma/list-style summary of exploit families covered, e.g. "XSS, CSRF".
-  exploitDescription String   @map("exploit_description")
+  description        String   @default("")
+  exploitDescription String   @default("") @map("exploit_description")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -81,18 +70,18 @@ model Challenge {
   id          Int        @id @default(autoincrement())
   slug        String     @unique
   title       String
-  description String
+  description String     @default("")
   categoryId  Int        @map("category_id")
   score       Int        @default(100)
   difficulty  Difficulty @default(MEDIUM)
-  // SHA-256 hex of the trimmed flag. Null until staff sets one.
   flagHash    String?    @map("flag_hash")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  category  Category            @relation(fields: [categoryId], references: [id])
-  resources ChallengeResource[]
-  solves    ChallengeSolve[]
+  category        Category            @relation(fields: [categoryId], references: [id])
+  resources       ChallengeResource[]
+  solves          ChallengeSolve[]
+  eventChallenges EventChallenge[]
 
   @@map("challenges")
 }
@@ -115,7 +104,6 @@ model ChallengeResource {
   challengeId Int          @map("challenge_id")
   type        ResourceType
   label       String
-  // For LINK: full URL. For FILE: filename relative to the uploads dir.
   target      String
   position    Int          @default(0)
 
@@ -124,63 +112,57 @@ model ChallengeResource {
   @@map("challenge_resources")
 }
 
-// ─── Brackets ────────────────────────────────────────────────────────────────
-// A bracket is a user group tied to an event (CTF, workshop, ...). Points
-// earned during the event are tracked per-bracket via BracketMember.score.
-// Users can belong to multiple brackets simultaneously.
-model Bracket {
-  id          Int      @id @default(autoincrement())
-  slug        String   @unique
-  name        String   @unique
-  description String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  members BracketMember[]
-  events  Event[]
-
-  @@map("brackets")
-}
-
-model BracketMember {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  bracketId Int      @map("bracket_id")
-  score     Int      @default(0)
-  joinedAt  DateTime @default(now()) @map("joined_at")
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bracket Bracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, bracketId])
-  @@map("bracket_members")
-}
-
 // ─── Events ──────────────────────────────────────────────────────────────────
-// Free-form events the club organizes: CTFs, workshops, talks. Distinct from
-// Brackets, which are the user-grouping mechanism. An event may or may not
-// have an associated bracket — that wiring is left to staff for now.
+// An event is a time-bounded competition: it groups users (members) and a
+// curated set of challenges. Solving an event-listed challenge during the
+// window also credits the user's per-event score.
 model Event {
   id          Int      @id @default(autoincrement())
   slug        String   @unique
   name        String   @unique
-  description String
-  // Path under /uploads/, or null if no image was uploaded.
+  description String   @default("")
   imageUrl    String?  @map("image_url")
   startsAt    DateTime @map("starts_at")
   endsAt      DateTime @map("ends_at")
-  // Optional link to the bracket used for this event's scoring.
-  bracketId   Int?     @map("bracket_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  bracket Bracket? @relation(fields: [bracketId], references: [id], onDelete: SetNull)
+  members    EventMember[]
+  challenges EventChallenge[]
 
   @@map("events")
 }
 
-// Captures every correct flag submission. Score is snapshotted at solve time
-// so later edits to Challenge.score don't retro-apply.
+model EventMember {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @map("user_id")
+  eventId  Int      @map("event_id")
+  // Updated by the scoring engine when a member solves an event-challenge
+  // within the event window.
+  score    Int      @default(0)
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@map("event_members")
+}
+
+// Many-to-many tying challenges to events. A challenge only awards event score
+// for events that include it (and only during their window).
+model EventChallenge {
+  id          Int @id @default(autoincrement())
+  eventId     Int @map("event_id")
+  challengeId Int @map("challenge_id")
+
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, challengeId])
+  @@map("event_challenges")
+}
+
 model ChallengeSolve {
   id           Int      @id @default(autoincrement())
   userId       Int      @map("user_id")

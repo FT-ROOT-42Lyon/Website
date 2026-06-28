@@ -16,6 +16,7 @@ export default function EditCategoryPage() {
   const [exploitDescription, setExploitDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api<Category>(`/categories/${slug}`)
@@ -27,6 +28,28 @@ export default function EditCategoryPage() {
       })
       .catch(() => setError("Catégorie introuvable"));
   }, [slug]);
+
+  async function handleDelete() {
+    if (
+      !confirm(
+        `Supprimer définitivement la catégorie "${name}" ?\n\nL'opération échouera si des challenges y sont encore rattachés.`,
+      )
+    )
+      return;
+
+    setError(null);
+    setDeleting(true);
+    try {
+      await api(`/categories/${slug}`, { method: "DELETE" });
+      await refresh();
+      router.push("/admin/categories");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de la suppression",
+      );
+      setDeleting(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,10 +103,9 @@ export default function EditCategoryPage() {
         </label>
 
         <label className="form-field">
-          <span>Description</span>
+          <span>Description (optionnelle)</span>
           <textarea
             value={description}
-            required
             rows={4}
             maxLength={2000}
             onChange={(e) => setDescription(e.target.value)}
@@ -91,11 +113,10 @@ export default function EditCategoryPage() {
         </label>
 
         <label className="form-field">
-          <span>Exploits (résumé court)</span>
+          <span>Exploits (optionnel, résumé court)</span>
           <input
             type="text"
             value={exploitDescription}
-            required
             maxLength={200}
             onChange={(e) => setExploitDescription(e.target.value)}
           />
@@ -113,6 +134,22 @@ export default function EditCategoryPage() {
           </button>
         </div>
       </form>
+
+      <div className="danger-zone">
+        <p className="danger-zone-title">// danger_zone</p>
+        <p className="danger-zone-text">
+          Supprimer cette catégorie. Refusé si elle contient encore des
+          challenges — déplace-les ou supprime-les d&apos;abord.
+        </p>
+        <button
+          type="button"
+          className="btn btn-danger"
+          onClick={handleDelete}
+          disabled={deleting}
+        >
+          {deleting ? "Suppression..." : "Supprimer la catégorie"}
+        </button>
+      </div>
     </>
   );
 }

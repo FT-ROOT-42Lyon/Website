@@ -1,62 +1,15 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
-  OnModuleInit,
 } from "@nestjs/common";
 import { PrismaService } from "../core/prisma/prisma.service";
 import { slugify } from "../core/slug";
 
-interface DefaultCategory {
-  slug: string;
-  name: string;
-  description: string;
-  exploitDescription: string;
-}
-
-// Seeded on first boot. Never overwrites existing rows — staff is free to edit
-// these afterwards.
-const DEFAULTS: DefaultCategory[] = [
-  {
-    slug: "cracking",
-    name: "Cracking",
-    description:
-      "Analyse statique et dynamique de binaires, contournement de protections, écriture de keygens. Couvre ELF, PE, .NET, APK, WASM et autres.",
-    exploitDescription: "Reverse, crackmes, keygens",
-  },
-  {
-    slug: "webclient",
-    name: "WebClient",
-    description:
-      "Failles côté client : contournement de SOP, exploitation du DOM, attaques sur le navigateur.",
-    exploitDescription: "XSS, CSRF, prototype pollution",
-  },
-  {
-    slug: "webserver",
-    name: "WebServer",
-    description:
-      "Failles côté serveur : injections, désérialisation, path traversal, escalade de privilèges applicative.",
-    exploitDescription: "SSRF, SQLi, RCE",
-  },
-];
-
 @Injectable()
-export class CategoriesService implements OnModuleInit {
-  private readonly logger = new Logger(CategoriesService.name);
-
+export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
-
-  async onModuleInit() {
-    for (const cat of DEFAULTS) {
-      await this.prisma.category.upsert({
-        where: { slug: cat.slug },
-        update: {},
-        create: cat,
-      });
-    }
-    this.logger.log(`Seeded ${DEFAULTS.length} default categories (no-op if present)`);
-  }
 
   list() {
     return this.prisma.category.findMany({
@@ -120,5 +73,21 @@ export class CategoriesService implements OnModuleInit {
         exploitDescription: input.exploitDescription ?? undefined,
       },
     });
+  }
+
+  // Refuses if the category still has challenges — admin must delete them
+  // first. Safer than an opaque cascade that could wipe a lot of work.
+  async delete(slug: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      include: { _count: { select: { challenges: true } } },
+    });
+    if (!category) throw new NotFoundException("Category not found");
+    if (category._count.challenges > 0) {
+      throw new BadRequestException(
+        `Cette catégorie contient ${category._count.challenges} challenge(s). Supprime-les d'abord.`,
+      );
+    }
+    await this.prisma.category.delete({ where: { id: category.id } });
   }
 }

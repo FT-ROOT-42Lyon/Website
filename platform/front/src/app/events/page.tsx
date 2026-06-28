@@ -1,21 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { isEventActive, useEvents } from "~/lib/events-context";
+import { eventStatus } from "@ft-root/shared";
+import { useEvents } from "~/lib/events-context";
 import { Footer } from "~/components/Footer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 function formatRange(startsAt: string, endsAt: string): string {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
   const fmt = new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `${fmt.format(start)} → ${fmt.format(end)}`;
+  return `${fmt.format(new Date(startsAt))} → ${fmt.format(new Date(endsAt))}`;
 }
 
 export default function EventsListPage() {
@@ -45,7 +44,7 @@ export default function EventsListPage() {
         ) : (
           <div className="event-grid">
             {events.map((e) => {
-              const active = isEventActive(e);
+              const status = eventStatus(e);
               return (
                 <Link
                   key={e.slug}
@@ -63,21 +62,23 @@ export default function EventsListPage() {
                       <span className="event-card-date">
                         {formatRange(e.startsAt, e.endsAt)}
                       </span>
-                      {active && (
+                      {status === "active" && (
                         <span className="event-card-badge">en cours</span>
+                      )}
+                      {status === "past" && (
+                        <span className="event-card-badge event-card-badge-past">
+                          terminé
+                        </span>
                       )}
                     </div>
                     <h3>{e.name}</h3>
-                    {e.bracket && (
-                      <span className="event-bracket-badge">
-                        bracket — {e.bracket.name}
-                      </span>
+                    {e.description && (
+                      <p>
+                        {e.description.length > 200
+                          ? e.description.slice(0, 200) + "..."
+                          : e.description}
+                      </p>
                     )}
-                    <p>
-                      {e.description.length > 200
-                        ? e.description.slice(0, 200) + "..."
-                        : e.description}
-                    </p>
                     <span className="card-link">Ouvrir →</span>
                   </div>
                 </Link>

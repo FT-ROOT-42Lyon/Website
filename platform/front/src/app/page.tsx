@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { eventStatus } from "@ft-root/shared";
 import { Footer } from "~/components/Footer";
-import { isEventActive, useEvents } from "~/lib/events-context";
+import { useEvents } from "~/lib/events-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -52,7 +53,7 @@ export default function HomePage() {
         ) : (
           <div className="home-events">
             {events.map((e) => {
-              const active = isEventActive(e);
+              const status = eventStatus(e);
               return (
                 <Link
                   key={e.slug}
@@ -70,21 +71,23 @@ export default function HomePage() {
                       <span className="event-card-date">
                         {formatRange(e.startsAt, e.endsAt)}
                       </span>
-                      {active && (
+                      {status === "active" && (
                         <span className="event-card-badge">en cours</span>
+                      )}
+                      {status === "past" && (
+                        <span className="event-card-badge event-card-badge-past">
+                          terminé
+                        </span>
                       )}
                     </div>
                     <h3>{e.name}</h3>
-                    {e.bracket && (
-                      <span className="event-bracket-badge">
-                        bracket — {e.bracket.name}
-                      </span>
+                    {e.description && (
+                      <p>
+                        {e.description.length > 220
+                          ? e.description.slice(0, 220) + "..."
+                          : e.description}
+                      </p>
                     )}
-                    <p>
-                      {e.description.length > 220
-                        ? e.description.slice(0, 220) + "..."
-                        : e.description}
-                    </p>
                     <span className="card-link">Ouvrir →</span>
                   </div>
                 </Link>

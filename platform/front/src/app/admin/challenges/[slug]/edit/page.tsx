@@ -44,6 +44,7 @@ export default function EditChallengePage() {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api<Challenge>(`/challenges/${slug}`)
@@ -74,6 +75,27 @@ export default function EditChallengePage() {
       ...picked.map((f) => ({ file: f, label: f.name })),
     ]);
     e.target.value = "";
+  }
+
+  async function handleDelete() {
+    if (
+      !confirm(
+        `Supprimer définitivement le challenge "${title}" ?\n\nCela supprime aussi ses ressources (fichiers compris) et l'historique des solves. Les scores acquis restent inchangés.`,
+      )
+    )
+      return;
+
+    setError(null);
+    setDeleting(true);
+    try {
+      await api(`/challenges/${slug}`, { method: "DELETE" });
+      router.push("/admin/challenges");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de la suppression",
+      );
+      setDeleting(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -152,10 +174,9 @@ export default function EditChallengePage() {
         </label>
 
         <label className="form-field">
-          <span>Description</span>
+          <span>Description (optionnelle)</span>
           <textarea
             value={description}
-            required
             rows={6}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -373,6 +394,23 @@ export default function EditChallengePage() {
           </button>
         </div>
       </form>
+
+      <div className="danger-zone">
+        <p className="danger-zone-title">// danger_zone</p>
+        <p className="danger-zone-text">
+          Supprime le challenge, ses fichiers et l&apos;historique des
+          solves. Les points déjà gagnés par les utilisateurs ne sont
+          pas retirés.
+        </p>
+        <button
+          type="button"
+          className="btn btn-danger"
+          onClick={handleDelete}
+          disabled={deleting}
+        >
+          {deleting ? "Suppression..." : "Supprimer le challenge"}
+        </button>
+      </div>
     </>
   );
 }

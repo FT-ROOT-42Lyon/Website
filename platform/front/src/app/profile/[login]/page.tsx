@@ -27,15 +27,22 @@ export default function UserProfilePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Wait for the auth context to finish its initial refresh — otherwise we
+    // can fire the request without an access token and 401, which would then
+    // bounce a logged-in user to /login (this was the bug reported around
+    // opening the profile from the admin panel).
     if (authLoading) return;
-    if (!me) {
-      router.replace("/login");
-      return;
-    }
     api<UserStats>(`/users/${encodeURIComponent(login)}/stats`)
       .then(setStats)
-      .catch(() => setError("Utilisateur introuvable"));
-  }, [login, me, authLoading, router]);
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.startsWith("API 401")) {
+          router.replace("/login");
+        } else {
+          setError("Utilisateur introuvable");
+        }
+      });
+  }, [login, authLoading, router]);
 
   if (error) {
     return (
@@ -55,7 +62,7 @@ export default function UserProfilePage() {
     );
   }
 
-  const { user, globalRank, totalUsers, brackets, solves, neighborhood } = stats;
+  const { user, globalRank, totalUsers, events, solves, neighborhood } = stats;
   const isSelf = me?.id === user.id;
   const intraUrl = `https://profile.intra.42.fr/users/${user.login}`;
 
@@ -121,22 +128,22 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* ── Brackets ──────────────────────────────────────────────── */}
+        {/* ── Event participations ────────────────────────────────── */}
         <div className="profile-card">
           <p className="profile-card-title">Participations</p>
-          {brackets.length === 0 ? (
+          {events.length === 0 ? (
             <p className="profile-empty">Aucune participation à un événement.</p>
           ) : (
             <div className="bracket-badges">
-              {brackets.map((b) => (
+              {events.map((ev) => (
                 <Link
-                  key={b.slug}
-                  href={`/leaderboard/brackets/${b.slug}`}
+                  key={ev.slug}
+                  href={`/leaderboard/events/${ev.slug}`}
                   className="bracket-badge"
-                  title={`Rejoint le ${formatDate(b.joinedAt)}`}
+                  title={`Rejoint le ${formatDate(ev.joinedAt)}`}
                 >
-                  <span className="bracket-badge-name">{b.name}</span>
-                  <span className="bracket-badge-score">{b.score} pts</span>
+                  <span className="bracket-badge-name">{ev.name}</span>
+                  <span className="bracket-badge-score">{ev.score} pts</span>
                 </Link>
               ))}
             </div>

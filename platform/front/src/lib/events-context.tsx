@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import type { Event } from "@ft-root/shared";
+import { eventStatus } from "@ft-root/shared";
 import { api } from "./api";
 
 interface EventsContextValue {
@@ -35,8 +36,6 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // /events is a public endpoint — fetch unconditionally so the home page
-  // can show events to visitors as well.
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
@@ -50,7 +49,8 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
 export const useEvents = () => useContext(EventsContext);
 
-// Now ⊂ [startsAt, endsAt]
 export function isEventActive(e: Event, now = Date.now()): boolean {
-  return Date.parse(e.startsAt) <= now && now <= Date.parse(e.endsAt);
+  return eventStatus(e, now) === "active";
 }
+
+export { eventStatus };

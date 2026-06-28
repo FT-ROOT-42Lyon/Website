@@ -105,10 +105,9 @@ export default function NewChallengePage() {
         </label>
 
         <label className="form-field">
-          <span>Description</span>
+          <span>Description (optionnelle)</span>
           <textarea
             value={description}
-            required
             rows={6}
             onChange={(e) => setDescription(e.target.value)}
           />

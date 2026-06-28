@@ -43,8 +43,6 @@ export class LeaderboardController {
     );
   }
 
-  // Global timeline — top N users' cumulative score over time. `top` query
-  // param is clamped to [1, 50] to keep the chart readable.
   @Get("timeline")
   async globalTimeline(@Query("top") top?: string) {
     const limit = Math.max(1, Math.min(50, Number(top) || DEFAULT_TIMELINE_TOP));
@@ -56,17 +54,24 @@ export class LeaderboardController {
     return this.computeTimeline(topUsers);
   }
 
-  // Per-bracket ranking — only members of this bracket, sorted by bracket score.
-  @Get("brackets/:slug")
-  async byBracket(@Param("slug") slug: string) {
-    const bracket = await this.prisma.bracket.findUnique({
+  // Per-event ranking — members sorted by per-event score (desc).
+  @Get("events/:slug")
+  async byEvent(@Param("slug") slug: string) {
+    const event = await this.prisma.event.findUnique({
       where: { slug },
-      select: { id: true, name: true, slug: true, description: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        startsAt: true,
+        endsAt: true,
+      },
     });
-    if (!bracket) throw new NotFoundException("Bracket not found");
+    if (!event) throw new NotFoundException("Event not found");
 
-    const members = await this.prisma.bracketMember.findMany({
-      where: { bracketId: bracket.id },
+    const members = await this.prisma.eventMember.findMany({
+      where: { eventId: event.id },
       orderBy: [{ score: "desc" }, { joinedAt: "asc" }],
       include: {
         user: {
@@ -81,14 +86,21 @@ export class LeaderboardController {
     });
 
     return {
-      bracket,
+      event: {
+        ...event,
+        startsAt: event.startsAt.toISOString(),
+        endsAt: event.endsAt.toISOString(),
+      },
       entries: members.map((m, i) => entry(i + 1, m.score, m.user)),
     };
   }
 
-  @Get("brackets/:slug/timeline")
-  async bracketTimeline(@Param("slug") slug: string) {
-    const bracket = await this.prisma.bracket.findUnique({
+  // Timeline for an event = solves of the event's challenges by event members
+  // within the event window. This reflects how the event leaderboard actually
+  // evolved, not every solve those members ever made.
+  @Get("events/:slug/timeline")
+  async eventTimeline(@Param("slug") slug: string) {
+    const event = await this.prisma.event.findUnique({
       where: { slug },
       include: {
         members: {
@@ -103,22 +115,21 @@ export class LeaderboardController {
             },
           },
         },
+        challenges: { select: { challengeId: true } },
       },
     });
-    if (!bracket) throw new NotFoundException("Bracket not found");
+    if (!event) throw new NotFoundException("Event not found");
 
-    return this.computeTimeline(bracket.members.map((m) => m.user));
-  }
-
-  // Builds, for each given user, a cumulative-score timeline made of their
-  // solves in chronological order. Empty users are omitted (would be a flat
-  // zero line).
-  private async computeTimeline(users: RawUser[]) {
-    if (users.length === 0) return [];
-    const userIds = users.map((u) => u.id);
+    const userIds = event.members.map((m) => m.userId);
+    const challengeIds = event.challenges.map((c) => c.challengeId);
+    if (userIds.length === 0 || challengeIds.length === 0) return [];
 
     const solves = await this.prisma.challengeSolve.findMany({
-      where: { userId: { in: userIds } },
+      where: {
+        userId: { in: userIds },
+        challengeId: { in: challengeIds },
+        solvedAt: { gte: event.startsAt, lte: event.endsAt },
+      },
       orderBy: { solvedAt: "asc" },
       include: {
         challenge: {
@@ -131,16 +142,58 @@ export class LeaderboardController {
       },
     });
 
-    const series = users.map((u) => ({ user: u, points: [] as Array<{
-      solvedAt: string;
-      cumulativeScore: number;
-      score: number;
+    return this.buildSeries(
+      event.members.map((m) => m.user),
+      solves,
+    );
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async computeTimeline(users: RawUser[]) {
+    if (users.length === 0) return [];
+    const solves = await this.prisma.challengeSolve.findMany({
+      where: { userId: { in: users.map((u) => u.id) } },
+      orderBy: { solvedAt: "asc" },
+      include: {
+        challenge: {
+          select: {
+            slug: true,
+            title: true,
+            category: { select: { slug: true, name: true } },
+          },
+        },
+      },
+    });
+    return this.buildSeries(users, solves);
+  }
+
+  private buildSeries(
+    users: RawUser[],
+    solves: Array<{
+      userId: number;
+      solvedAt: Date;
+      scoreAwarded: number;
       challenge: {
         slug: string;
         title: string;
         category: { slug: string; name: string };
       };
-    }>}));
+    }>,
+  ) {
+    const series = users.map((u) => ({
+      user: u,
+      points: [] as Array<{
+        solvedAt: string;
+        cumulativeScore: number;
+        score: number;
+        challenge: {
+          slug: string;
+          title: string;
+          category: { slug: string; name: string };
+        };
+      }>,
+    }));
     const idx = new Map(series.map((s, i) => [s.user.id, i]));
 
     for (const s of solves) {
@@ -153,11 +206,7 @@ export class LeaderboardController {
         solvedAt: s.solvedAt.toISOString(),
         cumulativeScore: previous + s.scoreAwarded,
         score: s.scoreAwarded,
-        challenge: {
-          slug: s.challenge.slug,
-          title: s.challenge.title,
-          category: s.challenge.category,
-        },
+        challenge: s.challenge,
       });
     }
 

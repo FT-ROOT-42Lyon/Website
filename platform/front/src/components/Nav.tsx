@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
-import { useBrackets } from "~/lib/brackets-context";
 import { isEventActive, useEvents } from "~/lib/events-context";
 
 export function Nav() {
   const { me, loading, logout } = useAuth();
   const { categories } = useCategories();
-  const { brackets } = useBrackets();
   const { events } = useEvents();
   const router = useRouter();
   const activeEvents = events.filter((e) => isEventActive(e));
@@ -59,15 +57,15 @@ export function Nav() {
                 <Link href="/leaderboard" className="nav-dropdown-head">
                   Global
                 </Link>
-                {brackets.length === 0 ? (
-                  <span className="nav-dropdown-empty">aucun bracket</span>
+                {events.length === 0 ? (
+                  <span className="nav-dropdown-empty">aucun événement</span>
                 ) : (
-                  brackets.map((b) => (
+                  events.map((e) => (
                     <Link
-                      key={b.slug}
-                      href={`/leaderboard/brackets/${b.slug}`}
+                      key={e.slug}
+                      href={`/leaderboard/events/${e.slug}`}
                     >
-                      {b.name}
+                      {e.name}
                     </Link>
                   ))
                 )}

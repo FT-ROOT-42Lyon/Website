@@ -4,7 +4,6 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ChallengesModule } from "./challenges/challenges.module";
-import { BracketsModule } from "./brackets/brackets.module";
 import { LeaderboardModule } from "./leaderboard/leaderboard.module";
 import { EventsModule } from "./events/events.module";
 
@@ -15,7 +14,6 @@ import { EventsModule } from "./events/events.module";
     UsersModule,
     CategoriesModule,
     ChallengesModule,
-    BracketsModule,
     LeaderboardModule,
     EventsModule,
   ],

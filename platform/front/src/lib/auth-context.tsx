@@ -36,25 +36,46 @@ const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
 });
 
+interface AuthState {
+  me: Me | null;
+  loading: boolean;
+}
+
+// Module-level in-flight promise. Two concurrent callers — typically the two
+// invocations of AuthProvider's effect under React.StrictMode in dev — share
+// the same promise so only ONE POST /auth/refresh fires. Without this, both
+// requests sent the same cookie; the first rotated the DB session and the
+// second 401'd because that session no longer existed, logging the user out
+// every reload.
+let loadInFlight: Promise<Me | null> | null = null;
+
+function loadMeShared(): Promise<Me | null> {
+  if (loadInFlight) return loadInFlight;
+  loadInFlight = (async () => {
+    try {
+      if (!getAccessToken()) {
+        const refreshed = await tryRefresh();
+        if (!refreshed) return null;
+      }
+      try {
+        return await api<Me>("/users/me");
+      } catch {
+        setAccessToken(null);
+        return null;
+      }
+    } finally {
+      loadInFlight = null;
+    }
+  })();
+  return loadInFlight;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [me, setMe] = useState<Me | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<AuthState>({ me: null, loading: true });
 
   const refresh = useCallback(async () => {
-    if (!getAccessToken()) {
-      const refreshed = await tryRefresh();
-      if (!refreshed) {
-        setMe(null);
-        return;
-      }
-    }
-    try {
-      const data = await api<Me>("/users/me");
-      setMe(data);
-    } catch {
-      setMe(null);
-      setAccessToken(null);
-    }
+    const me = await loadMeShared();
+    setState({ me, loading: false });
   }, []);
 
   const logout = useCallback(async () => {
@@ -65,23 +86,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } finally {
       setAccessToken(null);
-      setMe(null);
+      setState({ me: null, loading: false });
     }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      await refresh();
-      if (!cancelled) setLoading(false);
-    })();
+    loadMeShared().then((me) => {
+      if (!cancelled) setState({ me, loading: false });
+    });
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ me, loading, refresh, logout }}>
+    <AuthContext.Provider
+      value={{ me: state.me, loading: state.loading, refresh, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

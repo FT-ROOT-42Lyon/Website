@@ -77,9 +77,7 @@ export interface ChallengeSummary {
   score: number;
   difficulty: Difficulty;
   createdAt: string;
-  // True if the current user has already submitted a correct flag.
   solved: boolean;
-  // True once staff has configured a flag — challenge can be submitted.
   hasFlag: boolean;
   category?: { slug: string; name: string };
   resourceCount?: number;
@@ -93,21 +91,24 @@ export interface Challenge extends ChallengeSummary {
 export interface SubmitFlagResponse {
   correct: boolean;
   alreadySolved: boolean;
-  // Points credited by this submission (0 if already solved or incorrect).
   scoreAwarded: number;
 }
 
-// ─── Brackets ────────────────────────────────────────────────────────────────
-export interface Bracket {
+// ─── Events (= brackets with a duration) ─────────────────────────────────────
+export interface Event {
   id: number;
   slug: string;
   name: string;
   description: string;
-  memberCount: number;
+  imageUrl: string | null;
+  startsAt: string;
+  endsAt: string;
   createdAt: string;
+  memberCount: number;
+  challengeCount: number;
 }
 
-export interface BracketMember {
+export interface EventMember {
   id: number;
   score: number;
   joinedAt: string;
@@ -119,22 +120,21 @@ export interface BracketMember {
   };
 }
 
-export interface BracketDetail extends Bracket {
-  members: BracketMember[];
+export interface EventChallengeLink {
+  id: number;
+  challenge: {
+    id: number;
+    slug: string;
+    title: string;
+    score: number;
+    difficulty: Difficulty;
+    category: { slug: string; name: string };
+  };
 }
 
-// ─── Events ──────────────────────────────────────────────────────────────────
-export interface Event {
-  id: number;
-  slug: string;
-  name: string;
-  description: string;
-  // Relative path under the API (e.g. "/uploads/event-foo.png") or null.
-  imageUrl: string | null;
-  startsAt: string;
-  endsAt: string;
-  createdAt: string;
-  bracket: { slug: string; name: string } | null;
+export interface EventDetail extends Event {
+  members: EventMember[];
+  challenges: EventChallengeLink[];
 }
 
 // ─── Leaderboard ─────────────────────────────────────────────────────────────
@@ -184,11 +184,13 @@ export interface UserStats {
   };
   globalRank: number;
   totalUsers: number;
-  brackets: Array<{
+  events: Array<{
     slug: string;
     name: string;
     score: number;
     joinedAt: string;
+    startsAt: string;
+    endsAt: string;
   }>;
   solves: TimelinePoint[];
   difficultyDistribution: Record<Difficulty, number>;
@@ -199,4 +201,18 @@ export interface UserStats {
     percentage: number;
   }>;
   neighborhood: LeaderboardEntry[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+export type EventStatus = "upcoming" | "active" | "past";
+
+export function eventStatus(
+  e: { startsAt: string; endsAt: string },
+  now: number = Date.now(),
+): EventStatus {
+  const start = Date.parse(e.startsAt);
+  const end = Date.parse(e.endsAt);
+  if (now < start) return "upcoming";
+  if (now > end) return "past";
+  return "active";
 }

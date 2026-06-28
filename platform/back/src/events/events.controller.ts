@@ -2,8 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   UploadedFile,
@@ -11,6 +14,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { IsString, MinLength } from "class-validator";
 import { diskStorage } from "multer";
 import { randomBytes } from "crypto";
 import { extname } from "path";
@@ -19,7 +23,18 @@ import { JwtAuthGuard } from "../core/guards/jwt-auth.guard";
 import { StaffGuard } from "../core/guards/staff.guard";
 import { UPLOADS_DIR } from "../core/uploads";
 
-function serialize(e: {
+class AddMemberDto {
+  @IsString()
+  login!: string;
+}
+
+class AddChallengeDto {
+  @IsString()
+  @MinLength(1)
+  challengeSlug!: string;
+}
+
+interface EventRow {
   id: number;
   slug: string;
   name: string;
@@ -28,8 +43,10 @@ function serialize(e: {
   startsAt: Date;
   endsAt: Date;
   createdAt: Date;
-  bracket: { slug: string; name: string } | null;
-}) {
+  _count?: { members: number; challenges: number };
+}
+
+function serializeSummary(e: EventRow) {
   return {
     id: e.id,
     slug: e.slug,
@@ -39,7 +56,44 @@ function serialize(e: {
     startsAt: e.startsAt.toISOString(),
     endsAt: e.endsAt.toISOString(),
     createdAt: e.createdAt.toISOString(),
-    bracket: e.bracket,
+    memberCount: e._count?.members ?? 0,
+    challengeCount: e._count?.challenges ?? 0,
+  };
+}
+
+function serializeMember(m: {
+  id: number;
+  score: number;
+  joinedAt: Date;
+  user: {
+    id: number;
+    login: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+}) {
+  return {
+    id: m.id,
+    score: m.score,
+    joinedAt: m.joinedAt.toISOString(),
+    user: m.user,
+  };
+}
+
+function serializeEventChallenge(ec: {
+  id: number;
+  challenge: {
+    id: number;
+    slug: string;
+    title: string;
+    score: number;
+    difficulty: string;
+    category: { slug: string; name: string };
+  };
+}) {
+  return {
+    id: ec.id,
+    challenge: ec.challenge,
   };
 }
 
@@ -72,21 +126,26 @@ function parseOptionalDate(raw: string | undefined, label: string): Date | undef
   return d;
 }
 
-// Public reads, staff-only writes. Mirrors the categories pattern so the home
-// page can list events without requiring login.
 @Controller("events")
 export class EventsController {
   constructor(private readonly events: EventsService) {}
 
+  // List + detail are public so the home page and nav dropdowns work for
+  // anonymous visitors. Mutations are staff-only.
   @Get()
   async list() {
     const items = await this.events.list();
-    return items.map(serialize);
+    return items.map(serializeSummary);
   }
 
   @Get(":slug")
-  async bySlug(@Param("slug") slug: string) {
-    return serialize(await this.events.getBySlug(slug));
+  async detail(@Param("slug") slug: string) {
+    const e = await this.events.getDetail(slug);
+    return {
+      ...serializeSummary(e),
+      members: e.members.map(serializeMember),
+      challenges: e.challenges.map(serializeEventChallenge),
+    };
   }
 
   @Post()
@@ -100,23 +159,20 @@ export class EventsController {
       description?: string;
       startsAt?: string;
       endsAt?: string;
-      bracketSlug?: string;
     },
   ) {
     const name = (body.name ?? "").trim();
-    const description = (body.description ?? "").trim();
-    if (!name || !description) {
-      throw new BadRequestException("name and description are required");
+    if (!name) {
+      throw new BadRequestException("name is required");
     }
 
-    return serialize(
+    return serializeSummary(
       await this.events.create({
         name,
-        description,
+        description: (body.description ?? "").trim(),
         startsAt: parseDate(body.startsAt, "startsAt"),
         endsAt: parseDate(body.endsAt, "endsAt"),
         imageFilename: image?.filename ?? null,
-        bracketSlug: body.bracketSlug?.trim() || null,
       }),
     );
   }
@@ -133,19 +189,62 @@ export class EventsController {
       description?: string;
       startsAt?: string;
       endsAt?: string;
-      // present-but-empty clears the bracket; absent leaves it alone.
-      bracketSlug?: string;
     },
   ) {
-    return serialize(
+    return serializeSummary(
       await this.events.update(slug, {
         name: body.name?.trim() || undefined,
-        description: body.description?.trim() || undefined,
+        // empty string overwrites description with "" (allowed); undefined keeps current.
+        description: body.description === undefined ? undefined : body.description.trim(),
         startsAt: parseOptionalDate(body.startsAt, "startsAt"),
         endsAt: parseOptionalDate(body.endsAt, "endsAt"),
         imageFilename: image?.filename,
-        bracketSlug: body.bracketSlug,
       }),
     );
+  }
+
+  @Delete(":slug")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async remove(@Param("slug") slug: string) {
+    await this.events.delete(slug);
+  }
+
+  // ─── Members management ────────────────────────────────────────────────
+  @Post(":slug/members")
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async addMember(@Param("slug") slug: string, @Body() body: AddMemberDto) {
+    return serializeMember(await this.events.addMember(slug, body.login));
+  }
+
+  @Delete(":slug/members/:userId")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async removeMember(
+    @Param("slug") slug: string,
+    @Param("userId", ParseIntPipe) userId: number,
+  ) {
+    await this.events.removeMember(slug, userId);
+  }
+
+  // ─── Challenges association ────────────────────────────────────────────
+  @Post(":slug/challenges")
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async addChallenge(
+    @Param("slug") slug: string,
+    @Body() body: AddChallengeDto,
+  ) {
+    await this.events.addChallenge(slug, body.challengeSlug);
+    return { ok: true };
+  }
+
+  @Delete(":slug/challenges/:challengeSlug")
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  async removeChallenge(
+    @Param("slug") slug: string,
+    @Param("challengeSlug") challengeSlug: string,
+  ) {
+    await this.events.removeChallenge(slug, challengeSlug);
   }
 }

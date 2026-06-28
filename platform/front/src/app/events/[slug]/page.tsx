@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import type { Event } from "@ft-root/shared";
+import type { EventDetail } from "@ft-root/shared";
+import { DIFFICULTY_LABELS, eventStatus } from "@ft-root/shared";
 import { api } from "~/lib/api";
-import { isEventActive } from "~/lib/events-context";
 import { Footer } from "~/components/Footer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -23,14 +23,39 @@ function formatDate(iso: string): string {
 
 export default function EventDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [event, setEvent] = useState<Event | null>(null);
+  const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<Event>(`/events/${slug}`)
+    api<EventDetail>(`/events/${slug}`)
       .then(setEvent)
       .catch(() => setError("Événement introuvable"));
   }, [slug]);
+
+  // Group challenges by category, preserving insertion order per category.
+  const grouped = useMemo(() => {
+    if (!event) return [];
+    const map = new Map<
+      string,
+      {
+        category: { slug: string; name: string };
+        items: EventDetail["challenges"];
+      }
+    >();
+    for (const ec of event.challenges) {
+      const key = ec.challenge.category.slug;
+      if (!map.has(key)) {
+        map.set(key, {
+          category: ec.challenge.category,
+          items: [],
+        });
+      }
+      map.get(key)!.items.push(ec);
+    }
+    return [...map.values()].sort((a, b) =>
+      a.category.name.localeCompare(b.category.name, "fr"),
+    );
+  }, [event]);
 
   if (error) {
     return (
@@ -50,25 +75,15 @@ export default function EventDetailPage() {
     );
   }
 
-  const active = isEventActive(event);
-  const now = Date.now();
-  const status =
-    active
-      ? "en cours"
-      : Date.parse(event.startsAt) > now
-        ? "à venir"
-        : "terminé";
+  const status = eventStatus(event);
+  const statusLabel =
+    status === "active" ? "en cours" : status === "past" ? "terminé" : "à venir";
 
   return (
     <>
       <section className="hero">
         <h1>{event.name}</h1>
-        <p className="hero-sub">// {status}</p>
-        {event.bracket && (
-          <p className="hero-sub" style={{ marginTop: "-0.5rem" }}>
-            bracket — {event.bracket.name}
-          </p>
-        )}
+        <p className="hero-sub">// {statusLabel}</p>
       </section>
 
       <div className="section">
@@ -89,24 +104,82 @@ export default function EventDetailPage() {
           <div>
             fin: <span>{formatDate(event.endsAt)}</span>
           </div>
-          {event.bracket && (
-            <div>
-              bracket:{" "}
-              <span>
-                <Link href={`/leaderboard/brackets/${event.bracket.slug}`}>
-                  {event.bracket.name} ↗
-                </Link>
-              </span>
-            </div>
-          )}
         </div>
 
-        <p className="section-title" style={{ marginTop: "3rem" }}>
-          Description
-        </p>
-        <div className="challenge-desc">{event.description}</div>
+        {event.description && (
+          <>
+            <p className="section-title" style={{ marginTop: "3rem" }}>
+              Description
+            </p>
+            <div className="challenge-desc">{event.description}</div>
+          </>
+        )}
+
+        {grouped.length > 0 && (
+          <>
+            <p className="section-title" style={{ marginTop: "3rem" }}>
+              Challenges ({event.challenges.length})
+            </p>
+            <p
+              style={{
+                color: "var(--muted)",
+                fontFamily: "var(--mono)",
+                fontSize: 12,
+                marginBottom: "1.5rem",
+              }}
+            >
+              // valider ces challenges pendant la durée crédite aussi le score
+              de l&apos;événement aux membres
+            </p>
+
+            {grouped.map((g) => (
+              <div key={g.category.slug} className="event-cat-block">
+                <div className="event-cat-head">
+                  <Link
+                    href={`/challenges/${g.category.slug}`}
+                    className="event-cat-name"
+                  >
+                    {g.category.name}
+                  </Link>
+                  <span className="event-cat-count">{g.items.length}</span>
+                </div>
+                <div className="chal-list">
+                  <div className="chal-list-row chal-list-head">
+                    <div>titre</div>
+                    <div>difficulté</div>
+                    <div className="chal-list-score">score</div>
+                  </div>
+                  {g.items.map((ec) => (
+                    <Link
+                      key={ec.id}
+                      href={`/challenges/${g.category.slug}/${ec.challenge.slug}`}
+                      className="chal-list-row chal-list-link"
+                    >
+                      <div className="chal-list-title">
+                        {ec.challenge.title}
+                      </div>
+                      <div>
+                        <span
+                          className={`diff-badge diff-${ec.challenge.difficulty}`}
+                        >
+                          {DIFFICULTY_LABELS[ec.challenge.difficulty]}
+                        </span>
+                      </div>
+                      <div className="chal-list-score">
+                        {ec.challenge.score} pts
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
 
         <p style={{ marginTop: "3rem" }}>
+          <Link href={`/leaderboard/events/${event.slug}`} className="btn">
+            Leaderboard de l&apos;événement →
+          </Link>{" "}
           <Link href="/events" className="btn">
             ← Tous les événements
           </Link>
