@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity ────────────────────────────────────────────────────────────────
+// All users authenticate exclusively through 42 intra OAuth, so `login` (their
+// 42 handle) is the primary external identifier. No password column on purpose.
+model User {
+  id          Int       @id @default(autoincrement())
+  ft42Id      Int       @unique @map("ft42_id")
+  login       String    @unique
+  email       String
+  displayName String?   @map("display_name")
+  avatarUrl   String?   @map("avatar_url")
+  // Staff flag — manually granted via DB/admin tooling for now.
+  isStaff     Boolean   @default(false) @map("is_staff")
+  // Global score, independent of brackets. Lifetime points across the platform.
+  score       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  sessions       Session[]
+  bracketMembers BracketMember[]
+  solves         ChallengeSolve[]
+
+  @@map("users")
+}
+
+// One row per active refresh token. `jti` is the token's unique id; rotating
+// the refresh token deletes the old row and creates a new one.
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  jti       String   @unique
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Short-lived nonce stored when we generate the 42 OAuth URL. Verified and
+// consumed when the callback hits the backend — protects against CSRF on the
+// OAuth flow.
+model OAuthState {
+  id        Int      @id @default(autoincrement())
+  state     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@map("oauth_states")
+}
+
+// ─── Challenge catalog ───────────────────────────────────────────────────────
+// Categories outlive events: an event picks among them or adds exclusive
+// challenges that later get folded back in.
+model Category {
+  id                 Int      @id @default(autoincrement())
+  slug               String   @unique
+  name               String   @unique
+  description        String
+  // Short comma/list-style summary of exploit families covered, e.g. "XSS, CSRF".
+  exploitDescription String   @map("exploit_description")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  challenges Challenge[]
+
+  @@map("categories")
+}
+
+model Challenge {
+  id          Int        @id @default(autoincrement())
+  slug        String     @unique
+  title       String
+  description String
+  categoryId  Int        @map("category_id")
+  score       Int        @default(100)
+  difficulty  Difficulty @default(MEDIUM)
+  // SHA-256 hex of the trimmed flag. Null until staff sets one.
+  flagHash    String?    @map("flag_hash")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  category  Category            @relation(fields: [categoryId], references: [id])
+  resources ChallengeResource[]
+  solves    ChallengeSolve[]
+
+  @@map("challenges")
+}
+
+enum Difficulty {
+  VERY_EASY
+  EASY
+  MEDIUM
+  HARD
+  VERY_HARD
+}
+
+enum ResourceType {
+  FILE
+  LINK
+}
+
+model ChallengeResource {
+  id          Int          @id @default(autoincrement())
+  challengeId Int          @map("challenge_id")
+  type        ResourceType
+  label       String
+  // For LINK: full URL. For FILE: filename relative to the uploads dir.
+  target      String
+  position    Int          @default(0)
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@map("challenge_resources")
+}
+
+// ─── Brackets ────────────────────────────────────────────────────────────────
+// A bracket is a user group tied to an event (CTF, workshop, ...). Points
+// earned during the event are tracked per-bracket via BracketMember.score.
+// Users can belong to multiple brackets simultaneously.
+model Bracket {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String   @unique
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members BracketMember[]
+
+  @@map("brackets")
+}
+
+model BracketMember {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  bracketId Int      @map("bracket_id")
+  score     Int      @default(0)
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bracket Bracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bracketId])
+  @@map("bracket_members")
+}
+
+// Captures every correct flag submission. Score is snapshotted at solve time
+// so later edits to Challenge.score don't retro-apply.
+model ChallengeSolve {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  challengeId  Int      @map("challenge_id")
+  scoreAwarded Int      @map("score_awarded")
+  solvedAt     DateTime @default(now()) @map("solved_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@map("challenge_solves")
+}

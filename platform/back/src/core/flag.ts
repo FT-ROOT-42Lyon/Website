@@ -1,0 +1,17 @@
+import { createHash, timingSafeEqual } from "crypto";
+
+// Plain SHA-256(hex) of the trimmed flag. CTF flags are public once solved;
+// they're not passwords, so no salt/bcrypt is needed — but using a constant-
+// time comparison still avoids leaking timing info on near-miss attempts.
+export function hashFlag(flag: string): string {
+  return createHash("sha256").update(flag.trim()).digest("hex");
+}
+
+export function flagMatches(submitted: string, storedHex: string): boolean {
+  const submittedHash = hashFlag(submitted);
+  if (submittedHash.length !== storedHex.length) return false;
+  return timingSafeEqual(
+    Buffer.from(submittedHash, "hex"),
+    Buffer.from(storedHex, "hex"),
+  );
+}

@@ -1,0 +1,18 @@
+{
+  "name": "ft-root-platform",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Plateforme événementielle (CTF, workshops, etc.) du club ft_root — 42Lyon",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter back run db:migrate",
+    "db:generate": "pnpm --filter back run db:generate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
