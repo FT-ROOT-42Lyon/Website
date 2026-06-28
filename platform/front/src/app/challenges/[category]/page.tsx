@@ -11,6 +11,7 @@ import {
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
+import { Footer } from "~/components/Footer";
 
 export default function CategoryPage() {
   const { category: slug } = useParams<{ category: string }>();
@@ -76,9 +77,7 @@ export default function CategoryPage() {
   return (
     <>
       <section className="hero">
-        <h1>
-          <span>{category.name}</span>
-        </h1>
+        <h1>{category.name}</h1>
         <p className="hero-sub">// {category.exploitDescription}</p>
         <p className="hero-desc">{category.description}</p>
       </section>
@@ -145,9 +144,7 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      <footer>
-        <span>ft_root</span> — Club Cybersécurité 42Lyon
-      </footer>
+      <Footer />
     </>
   );
 }

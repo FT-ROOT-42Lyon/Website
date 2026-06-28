@@ -137,6 +137,7 @@ model Bracket {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   members BracketMember[]
+  events  Event[]
 
   @@map("brackets")
 }
@@ -153,6 +154,29 @@ model BracketMember {
 
   @@unique([userId, bracketId])
   @@map("bracket_members")
+}
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+// Free-form events the club organizes: CTFs, workshops, talks. Distinct from
+// Brackets, which are the user-grouping mechanism. An event may or may not
+// have an associated bracket — that wiring is left to staff for now.
+model Event {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String   @unique
+  description String
+  // Path under /uploads/, or null if no image was uploaded.
+  imageUrl    String?  @map("image_url")
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime @map("ends_at")
+  // Optional link to the bracket used for this event's scoring.
+  bracketId   Int?     @map("bracket_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  bracket Bracket? @relation(fields: [bracketId], references: [id], onDelete: SetNull)
+
+  @@map("events")
 }
 
 // Captures every correct flag submission. Score is snapshotted at solve time

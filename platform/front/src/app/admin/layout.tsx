@@ -32,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Link href="/admin/categories">Catégories</Link>
         <Link href="/admin/challenges">Challenges</Link>
         <Link href="/admin/brackets">Brackets</Link>
+        <Link href="/admin/events">Événements</Link>
       </aside>
       <main className="admin-main">{children}</main>
     </div>

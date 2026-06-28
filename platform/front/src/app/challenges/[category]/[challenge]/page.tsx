@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { Challenge, SubmitFlagResponse } from "@ft-root/shared";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
+import { Footer } from "~/components/Footer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -108,9 +109,7 @@ export default function ChallengePage() {
   return (
     <>
       <section className="hero">
-        <h1>
-          <span>{challenge.title}</span>
-        </h1>
+        <h1>{challenge.title}</h1>
         <p className="hero-sub">// {challenge.category.name}</p>
         {challenge.solved && (
           <p className="solved-pill">✓ validé — {challenge.score} pts</p>
@@ -225,9 +224,7 @@ export default function ChallengePage() {
         </p>
       </div>
 
-      <footer>
-        <span>ft_root</span> — Club Cybersécurité 42Lyon
-      </footer>
+      <Footer />
     </>
   );
 }

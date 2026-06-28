@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
+import { Footer } from "~/components/Footer";
 
 export default function ChallengesIndexPage() {
   const { me, loading: authLoading } = useAuth();
@@ -27,9 +28,7 @@ export default function ChallengesIndexPage() {
   return (
     <>
       <section className="hero">
-        <h1>
-          <span>Catégories</span>
-        </h1>
+        <h1>Catégories</h1>
         <p className="hero-sub">// challenges par domaine</p>
         <p className="hero-desc">
           Sélectionne une catégorie pour accéder à ses challenges. Les
@@ -54,18 +53,14 @@ export default function ChallengesIndexPage() {
                 <p className="card-tag">{c.exploitDescription}</p>
                 <h3>{c.name}</h3>
                 <p>{c.description}</p>
-                <span className="card-link">
-                  Ouvrir ({c.challengeCount}) →
-                </span>
+                <span className="card-link">Ouvrir →</span>
               </Link>
             ))}
           </div>
         )}
       </div>
 
-      <footer>
-        <span>ft_root</span> — Club Cybersécurité 42Lyon
-      </footer>
+      <Footer />
     </>
   );
 }

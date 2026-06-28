@@ -5,7 +5,7 @@ export default function AdminHomePage() {
     <>
       <p className="section-title">Panneau d&apos;administration</p>
       <p style={{ color: "var(--muted)", marginBottom: "2rem" }}>
-        Espace réservé au staff du club. Utilise le menu de gauche pour naviguer.
+        Espace réservé au staff du club.
       </p>
 
       <div className="cards">
@@ -31,6 +31,12 @@ export default function AdminHomePage() {
           <p className="card-tag">// événements</p>
           <h3>Brackets</h3>
           <p>Groupes d&apos;utilisateurs liés à un événement et leurs scores.</p>
+          <span className="card-link">Ouvrir →</span>
+        </Link>
+        <Link href="/admin/events" className="card card-link-block">
+          <p className="card-tag">// événements</p>
+          <h3>Événements</h3>
+          <p>Créer et gérer les événements du club (CTF, workshops, ...).</p>
           <span className="card-link">Ouvrir →</span>
         </Link>
       </div>

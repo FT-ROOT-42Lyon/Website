@@ -123,6 +123,20 @@ export interface BracketDetail extends Bracket {
   members: BracketMember[];
 }
 
+// ─── Events ──────────────────────────────────────────────────────────────────
+export interface Event {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  // Relative path under the API (e.g. "/uploads/event-foo.png") or null.
+  imageUrl: string | null;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  bracket: { slug: string; name: string } | null;
+}
+
 // ─── Leaderboard ─────────────────────────────────────────────────────────────
 export interface LeaderboardEntry {
   rank: number;
@@ -133,4 +147,56 @@ export interface LeaderboardEntry {
     displayName: string | null;
     avatarUrl: string | null;
   };
+}
+
+export interface TimelinePoint {
+  solvedAt: string;
+  cumulativeScore: number;
+  score: number;
+  challenge: {
+    slug: string;
+    title: string;
+    category: { slug: string; name: string };
+  };
+}
+
+export interface TimelineSeries {
+  user: {
+    id: number;
+    login: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+  points: TimelinePoint[];
+}
+
+// ─── Profile stats ───────────────────────────────────────────────────────────
+export interface UserStats {
+  user: {
+    id: number;
+    login: string;
+    displayName: string | null;
+    email: string;
+    avatarUrl: string | null;
+    isStaff: boolean;
+    score: number;
+    createdAt: string;
+  };
+  globalRank: number;
+  totalUsers: number;
+  brackets: Array<{
+    slug: string;
+    name: string;
+    score: number;
+    joinedAt: string;
+  }>;
+  solves: TimelinePoint[];
+  difficultyDistribution: Record<Difficulty, number>;
+  categoryStats: Array<{
+    category: { slug: string; name: string };
+    totalChallenges: number;
+    solvedCount: number;
+    percentage: number;
+  }>;
+  neighborhood: LeaderboardEntry[];
 }

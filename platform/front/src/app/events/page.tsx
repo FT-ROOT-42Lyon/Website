@@ -1,0 +1,93 @@
+"use client";
+
+import Link from "next/link";
+import { isEventActive, useEvents } from "~/lib/events-context";
+import { Footer } from "~/components/Footer";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+function formatRange(startsAt: string, endsAt: string): string {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  const fmt = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${fmt.format(start)} → ${fmt.format(end)}`;
+}
+
+export default function EventsListPage() {
+  const { events, loading } = useEvents();
+
+  return (
+    <>
+      <section className="hero">
+        <h1>Événements</h1>
+        <p className="hero-sub">// CTF, workshops, talks</p>
+        <p className="hero-desc">
+          Tous les événements organisés par le club ft_root, passés, en cours
+          et à venir.
+        </p>
+      </section>
+
+      <div className="section">
+        <p className="section-title">Liste</p>
+
+        {loading ? (
+          <p className="callback-mono callback-blink">Chargement</p>
+        ) : events.length === 0 ? (
+          <div className="empty-card">
+            <p className="empty-tag">// no_data</p>
+            <p>Aucun événement publié pour l&apos;instant.</p>
+          </div>
+        ) : (
+          <div className="event-grid">
+            {events.map((e) => {
+              const active = isEventActive(e);
+              return (
+                <Link
+                  key={e.slug}
+                  href={`/events/${e.slug}`}
+                  className="event-card"
+                >
+                  {e.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`${API_URL}${e.imageUrl}`} alt={e.name} />
+                  ) : (
+                    <div className="event-card-placeholder">// no_image</div>
+                  )}
+                  <div className="event-card-body">
+                    <div className="event-card-head">
+                      <span className="event-card-date">
+                        {formatRange(e.startsAt, e.endsAt)}
+                      </span>
+                      {active && (
+                        <span className="event-card-badge">en cours</span>
+                      )}
+                    </div>
+                    <h3>{e.name}</h3>
+                    {e.bracket && (
+                      <span className="event-bracket-badge">
+                        bracket — {e.bracket.name}
+                      </span>
+                    )}
+                    <p>
+                      {e.description.length > 200
+                        ? e.description.slice(0, 200) + "..."
+                        : e.description}
+                    </p>
+                    <span className="card-link">Ouvrir →</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Footer />
+    </>
+  );
+}

@@ -35,9 +35,8 @@ export default function AdminCategoriesPage() {
       {!categories ? (
         <p className="callback-mono callback-blink">Chargement</p>
       ) : (
-        <div className="cat-table">
+        <div className="cat-table cat-table-noslug">
           <div className="cat-row cat-row-head">
-            <div>slug</div>
             <div>nom</div>
             <div>exploits</div>
             <div className="cat-count-col">challenges</div>
@@ -48,7 +47,6 @@ export default function AdminCategoriesPage() {
               href={`/admin/categories/${c.slug}/edit`}
               className="cat-row cat-row-link"
             >
-              <div className="cat-slug">{c.slug}</div>
               <div>{c.name}</div>
               <div className="cat-dim">{c.exploitDescription}</div>
               <div className="cat-count-col">{c.challengeCount}</div>

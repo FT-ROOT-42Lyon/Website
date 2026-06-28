@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { LeaderboardEntry } from "@ft-root/shared";
+import type { LeaderboardEntry, TimelineSeries } from "@ft-root/shared";
 import { LeaderboardTable } from "~/components/Leaderboard";
+import { ScoreTimeline } from "~/components/charts/ScoreTimeline";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
 import { useBrackets } from "~/lib/brackets-context";
+import { Footer } from "~/components/Footer";
 
 export default function GlobalLeaderboardPage() {
   const { me, loading: authLoading } = useAuth();
   const { brackets } = useBrackets();
   const router = useRouter();
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
+  const [timeline, setTimeline] = useState<TimelineSeries[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,8 +25,14 @@ export default function GlobalLeaderboardPage() {
       router.replace("/login");
       return;
     }
-    api<LeaderboardEntry[]>("/leaderboard")
-      .then(setEntries)
+    Promise.all([
+      api<LeaderboardEntry[]>("/leaderboard"),
+      api<TimelineSeries[]>("/leaderboard/timeline?top=10"),
+    ])
+      .then(([e, t]) => {
+        setEntries(e);
+        setTimeline(t);
+      })
       .catch(() => setError("Impossible de charger le leaderboard"));
   }, [me, authLoading, router]);
 
@@ -38,9 +47,7 @@ export default function GlobalLeaderboardPage() {
   return (
     <>
       <section className="hero">
-        <h1>
-          <span>Leaderboard</span>
-        </h1>
+        <h1>Leaderboard</h1>
         <p className="hero-sub">// classement global</p>
         <p className="hero-desc">
           Tous les utilisateurs classés par leur score cumulé sur la
@@ -56,6 +63,26 @@ export default function GlobalLeaderboardPage() {
           <p className="callback-mono callback-blink">Chargement</p>
         ) : (
           <LeaderboardTable entries={entries} />
+        )}
+
+        <p className="section-title" style={{ marginTop: "3rem" }}>
+          Évolution des scores
+          <small
+            style={{
+              marginLeft: "0.8rem",
+              color: "var(--muted)",
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "none",
+            }}
+          >
+            top 10
+          </small>
+        </p>
+        {!timeline ? (
+          <p className="callback-mono callback-blink">Chargement</p>
+        ) : (
+          <ScoreTimeline series={timeline} showLegend />
         )}
 
         {brackets.length > 0 && (
@@ -87,9 +114,7 @@ export default function GlobalLeaderboardPage() {
         )}
       </div>
 
-      <footer>
-        <span>ft_root</span> — Club Cybersécurité 42Lyon
-      </footer>
+      <Footer />
     </>
   );
 }

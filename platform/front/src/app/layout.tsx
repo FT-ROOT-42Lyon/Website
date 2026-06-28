@@ -3,11 +3,22 @@ import "./globals.css";
 import { AuthProvider } from "~/lib/auth-context";
 import { CategoriesProvider } from "~/lib/categories-context";
 import { BracketsProvider } from "~/lib/brackets-context";
+import { EventsProvider } from "~/lib/events-context";
 import { Nav } from "~/components/Nav";
 
 export const metadata: Metadata = {
   title: "ft_root — Plateforme",
   description: "Plateforme événementielle du club ft_root — 42Lyon",
+  icons: {
+    icon: [{ url: "/logo.webp", type: "image/webp" }],
+    shortcut: "/logo.webp",
+    apple: "/logo.webp",
+  },
+  openGraph: {
+    title: "ft_root — Plateforme",
+    description: "Plateforme événementielle du club ft_root — 42Lyon",
+    images: ["/logo.webp"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -37,8 +48,10 @@ export default function RootLayout({
         <AuthProvider>
           <CategoriesProvider>
             <BracketsProvider>
-              <Nav />
-              {children}
+              <EventsProvider>
+                <Nav />
+                {children}
+              </EventsProvider>
             </BracketsProvider>
           </CategoriesProvider>
         </AuthProvider>

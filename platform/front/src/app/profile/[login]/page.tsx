@@ -2,15 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import type { UserStats } from "@ft-root/shared";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
-import type { Me } from "~/lib/auth-context";
+import { Footer } from "~/components/Footer";
+import { ScoreTimeline } from "~/components/charts/ScoreTimeline";
+import { DifficultyDonut } from "~/components/charts/DifficultyDonut";
+import { CategoryRings } from "~/components/charts/CategoryRings";
+
+function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(iso));
+}
 
 export default function UserProfilePage() {
   const { login } = useParams<{ login: string }>();
   const { me, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [user, setUser] = useState<Me | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,8 +32,8 @@ export default function UserProfilePage() {
       router.replace("/login");
       return;
     }
-    api<Me>(`/users/${encodeURIComponent(login)}`)
-      .then(setUser)
+    api<UserStats>(`/users/${encodeURIComponent(login)}/stats`)
+      .then(setStats)
       .catch(() => setError("Utilisateur introuvable"));
   }, [login, me, authLoading, router]);
 
@@ -34,7 +47,7 @@ export default function UserProfilePage() {
     );
   }
 
-  if (!user) {
+  if (!stats) {
     return (
       <div className="callback">
         <p className="callback-mono callback-blink">Chargement</p>
@@ -42,77 +55,169 @@ export default function UserProfilePage() {
     );
   }
 
-  const intraUrl = `https://profile.intra.42.fr/users/${user.login}`;
+  const { user, globalRank, totalUsers, brackets, solves, neighborhood } = stats;
   const isSelf = me?.id === user.id;
+  const intraUrl = `https://profile.intra.42.fr/users/${user.login}`;
 
   return (
     <>
-      <section className="hero">
-        {user.avatarUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.avatarUrl}
-            alt={user.login}
-            className="profile-avatar"
-          />
-        )}
-        <h1>
-          {user.login}
-          <span>@ft_root</span>
-        </h1>
-        <p className="hero-sub">
-          {isSelf ? "// votre profil" : "// profil utilisateur"}
-        </p>
-        {user.displayName && (
-          <p className="hero-desc">{user.displayName}</p>
-        )}
-      </section>
-
-      <div className="section">
-        <p className="section-title">Identité</p>
-        <div className="kv-card">
-          <div>
-            login: <span>{user.login}</span>
-          </div>
-          {isSelf && (
-            <div>
-              email: <span>{user.email}</span>
+      <div className="section profile-section">
+        {/* ── Header card ───────────────────────────────────────────── */}
+        <div className="profile-card profile-header">
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt={user.login}
+              className="profile-avatar-lg"
+            />
+          ) : (
+            <div className="profile-avatar-lg profile-avatar-placeholder">
+              {user.login.slice(0, 2).toUpperCase()}
             </div>
           )}
-          <div>
-            display_name: <span>{user.displayName ?? "—"}</span>
+
+          <div className="profile-identity">
+            <h1>{user.login}</h1>
+            <div className="profile-meta-row">
+              <span
+                className={`role-badge ${user.isStaff ? "role-badge-staff" : ""}`}
+              >
+                {user.isStaff ? "staff" : "member"}
+              </span>
+              {user.displayName && (
+                <span className="profile-display-name">{user.displayName}</span>
+              )}
+            </div>
+            <p className="profile-since">
+              membre depuis {formatDate(user.createdAt)}
+            </p>
+            <a
+              href={intraUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="profile-intra-link"
+            >
+              intra.42.fr/users/{user.login} ↗
+            </a>
           </div>
-          <div>
-            staff:{" "}
-            <span style={{ color: user.isStaff ? "var(--red)" : undefined }}>
-              {String(user.isStaff)}
-            </span>
-          </div>
-          <div>
-            score global: <span style={{ color: "var(--red)" }}>{user.score}</span>
-          </div>
-          <div>
-            membre depuis:{" "}
-            <span>{new Date(user.createdAt).toLocaleDateString("fr-FR")}</span>
+
+          <div className="profile-stats-corner">
+            <div>
+              <span className="profile-stat-label">score global</span>
+              <strong className="profile-stat-value">{user.score}</strong>
+            </div>
+            <div>
+              <span className="profile-stat-label">classement</span>
+              <strong className="profile-stat-value">
+                #{globalRank}
+                <small> /{totalUsers}</small>
+              </strong>
+            </div>
+            <div>
+              <span className="profile-stat-label">challenges</span>
+              <strong className="profile-stat-value">{solves.length}</strong>
+            </div>
           </div>
         </div>
 
-        <p className="section-title" style={{ marginTop: "3rem" }}>
-          Intra 42
-        </p>
-        <a
-          href={intraUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn"
-        >
-          Voir le profil sur intra.42.fr →
-        </a>
+        {/* ── Brackets ──────────────────────────────────────────────── */}
+        <div className="profile-card">
+          <p className="profile-card-title">Participations</p>
+          {brackets.length === 0 ? (
+            <p className="profile-empty">Aucune participation à un événement.</p>
+          ) : (
+            <div className="bracket-badges">
+              {brackets.map((b) => (
+                <Link
+                  key={b.slug}
+                  href={`/leaderboard/brackets/${b.slug}`}
+                  className="bracket-badge"
+                  title={`Rejoint le ${formatDate(b.joinedAt)}`}
+                >
+                  <span className="bracket-badge-name">{b.name}</span>
+                  <span className="bracket-badge-score">{b.score} pts</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Score timeline ───────────────────────────────────────── */}
+        <div className="profile-card">
+          <p className="profile-card-title">Évolution du score</p>
+          <p className="profile-card-hint">
+            Chaque point = un challenge validé. Survole pour le détail, clique
+            pour ouvrir la page du challenge.
+          </p>
+          <ScoreTimeline
+            series={[
+              {
+                user: {
+                  id: user.id,
+                  login: user.login,
+                  displayName: user.displayName,
+                  avatarUrl: user.avatarUrl,
+                },
+                points: solves,
+              },
+            ]}
+          />
+        </div>
+
+        {/* ── Charts row: donut + rings ─────────────────────────────── */}
+        <div className="profile-charts-row">
+          <div className="profile-card">
+            <p className="profile-card-title">Difficultés validées</p>
+            <DifficultyDonut distribution={stats.difficultyDistribution} />
+          </div>
+          <div className="profile-card">
+            <p className="profile-card-title">Progression par catégorie</p>
+            <CategoryRings stats={stats.categoryStats} />
+          </div>
+        </div>
+
+        {/* ── Neighborhood leaderboard ─────────────────────────────── */}
+        <div className="profile-card">
+          <p className="profile-card-title">Voisinage du classement</p>
+          <div className="lb-table">
+            <div className="lb-row lb-row-head">
+              <div className="lb-rank-col">#</div>
+              <div>utilisateur</div>
+              <div className="lb-score-col">score</div>
+            </div>
+            {neighborhood.map((e) => {
+              const isMe = e.user.id === user.id;
+              return (
+                <Link
+                  key={e.user.id}
+                  href={`/profile/${e.user.login}`}
+                  className={`lb-row lb-row-rank-${e.rank <= 3 ? e.rank : "n"} ${isMe ? "lb-row-me" : ""}`}
+                >
+                  <div className="lb-rank-col">{e.rank}</div>
+                  <div className="lb-user">
+                    {e.user.avatarUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={e.user.avatarUrl} alt="" />
+                    )}
+                    <span>{e.user.login}</span>
+                    {isMe && <small className="lb-me-tag">vous</small>}
+                  </div>
+                  <div className="lb-score-col">{e.score}</div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {isSelf && (
+          <p className="profile-self-note">
+            // seul toi vois ton e-mail ({user.email})
+          </p>
+        )}
       </div>
 
-      <footer>
-        <span>ft_root</span> — Club Cybersécurité 42Lyon
-      </footer>
+      <Footer />
     </>
   );
 }

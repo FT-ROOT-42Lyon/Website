@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
 import { useBrackets } from "~/lib/brackets-context";
+import { isEventActive, useEvents } from "~/lib/events-context";
 
 export function Nav() {
   const { me, loading, logout } = useAuth();
   const { categories } = useCategories();
   const { brackets } = useBrackets();
+  const { events } = useEvents();
   const router = useRouter();
+  const activeEvents = events.filter((e) => isEventActive(e));
 
   async function handleLogout() {
     await logout();
@@ -19,13 +22,17 @@ export function Nav() {
 
   return (
     <nav className="nav">
-      <Link href="/" className="nav-logo">
-        <span>
-          ft_<b>root</b>
-        </span>
-      </Link>
+      <div className="nav-left">
+        <Link href="/" className="nav-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.webp" alt="ft_root" />
+          <span>
+            ft<b>_</b>root
+          </span>
+        </Link>
+      </div>
 
-      <div className="nav-links">
+      <div className="nav-center">
         {loading ? null : me ? (
           <>
             <div className="nav-dropdown">
@@ -67,10 +74,35 @@ export function Nav() {
               </div>
             </div>
 
+            <div className="nav-dropdown">
+              <Link href="/events" className="nav-dropdown-trigger">
+                Événements <span className="nav-chevron">▾</span>
+              </Link>
+              <div className="nav-dropdown-menu">
+                <Link href="/events" className="nav-dropdown-head">
+                  Tous les événements
+                </Link>
+                {activeEvents.length === 0 ? (
+                  <span className="nav-dropdown-empty">aucun en cours</span>
+                ) : (
+                  activeEvents.map((e) => (
+                    <Link key={e.slug} href={`/events/${e.slug}`}>
+                      {e.name}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
             <Link href={`/profile/${me.login}`}>Profil</Link>
             {me.isStaff && <Link href="/admin">Admin</Link>}
-            <button onClick={handleLogout}>Déconnexion</button>
           </>
+        ) : null}
+      </div>
+
+      <div className="nav-right">
+        {loading ? null : me ? (
+          <button onClick={handleLogout}>Déconnexion</button>
         ) : (
           <Link href="/login">Connexion</Link>
         )}
