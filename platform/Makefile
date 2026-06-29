@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help install setup env dev build start \
         db-up db-down db-logs db-migrate db-reset db-studio db-generate \
+        db-export db-import \
         clean reclean re
 
 # ─── Help ────────────────────────────────────────────────────────────────────
@@ -25,6 +26,8 @@ help:
 	@echo "    make db-generate  Regenerate Prisma client only"
 	@echo "    make db-studio    Open Prisma Studio"
 	@echo "    make db-reset     Drop, recreate, re-migrate (DESTROYS DATA)"
+	@echo "    make db-export    Dump DB to dumps/<timestamp>.sql (or OUT=path)"
+	@echo "    make db-import IN=path   Restore DB from a .sql dump"
 	@echo ""
 	@echo "  Clean:"
 	@echo "    make clean        Remove node_modules / build artifacts"
@@ -77,6 +80,24 @@ db-studio:
 
 db-reset:
 	cd back && pnpm exec prisma migrate reset --force
+
+# ─── Dump / restore ──────────────────────────────────────────────────────────
+# `pg_dump --clean --if-exists` writes DROP statements before each CREATE so
+# a restore is idempotent: importing into a populated DB drops the matching
+# objects first, importing into an empty DB skips them gracefully.
+db-export:
+	@mkdir -p dumps
+	@OUT_PATH="$${OUT:-dumps/$$(date +%Y%m%d-%H%M%S).sql}"; \
+	echo "→ dumping postgres to $$OUT_PATH"; \
+	docker compose exec -T postgres pg_dump -U ftroot --clean --if-exists ftroot > "$$OUT_PATH"; \
+	echo "✓ wrote $$OUT_PATH ($$(du -h "$$OUT_PATH" | cut -f1))"
+
+db-import:
+	@test -n "$(IN)" || { echo "usage: make db-import IN=path/to/dump.sql"; exit 1; }
+	@test -f "$(IN)"  || { echo "✗ file not found: $(IN)"; exit 1; }
+	@echo "→ importing $(IN) into postgres"
+	@docker compose exec -T postgres psql -U ftroot -d ftroot --quiet -v ON_ERROR_STOP=1 < "$(IN)"
+	@echo "✓ db imported — run 'make db-generate' if the schema changed"
 
 # ─── Clean ───────────────────────────────────────────────────────────────────
 clean:
