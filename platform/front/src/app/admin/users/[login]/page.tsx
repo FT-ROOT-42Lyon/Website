@@ -10,6 +10,7 @@ import {
 } from "@ft-root/shared";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
+import { SearchableSelect } from "~/components/SearchableSelect";
 
 function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -250,18 +251,18 @@ export default function AdminUserEditPage() {
         // crédite le score global ; les événements liés crédités seulement si
         le challenge en fait partie et la date de validation tombe dans la durée
       </p>
-      <div className="solve-add-grid">
-        <select
-          value={pickedChallenge}
-          onChange={(e) => setPickedChallenge(e.target.value)}
-        >
-          <option value="">— sélectionner un challenge —</option>
-          {candidates.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.category?.name} · {c.title} (+{c.score})
-            </option>
-          ))}
-        </select>
+      <SearchableSelect
+        options={candidates.map((c) => ({
+          value: c.slug,
+          label: `${c.category?.name ?? ""} · ${c.title} (+${c.score})`,
+          search: [c.title, c.category?.name],
+        }))}
+        value={pickedChallenge}
+        onChange={setPickedChallenge}
+        placeholder="rechercher un challenge..."
+        emptyText="Aucun challenge à valider"
+      />
+      <div className="solve-add-commit">
         <input
           type="datetime-local"
           value={pickedSolvedAt}

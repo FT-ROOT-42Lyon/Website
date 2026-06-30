@@ -23,6 +23,18 @@ export interface NewLink {
   url: string;
 }
 
+// Used by the admin update flow. Only resources whose id appears here are
+// preserved; any pre-existing resource missing from this list is destroyed
+// (its file is unlinked from disk for FILE resources).
+export interface ExistingResourceUpdate {
+  id: number;
+  label: string;
+  // For LINK resources: the new URL. Ignored for FILE resources (target is
+  // the on-disk filename, which we never let admins rewrite — to swap the
+  // file content they remove the row and upload a new one).
+  target?: string;
+}
+
 @Injectable()
 export class ChallengesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -33,7 +45,7 @@ export class ChallengesService {
 
   list(userId: number) {
     return this.prisma.challenge.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ score: "asc" }, { title: "asc" }],
       include: {
         category: { select: { name: true, slug: true } },
         _count: { select: { resources: true } },
@@ -45,7 +57,7 @@ export class ChallengesService {
   listByCategorySlug(slug: string, userId: number) {
     return this.prisma.challenge.findMany({
       where: { category: { slug } },
-      orderBy: [{ difficulty: "asc" }, { title: "asc" }],
+      orderBy: [{ score: "asc" }, { title: "asc" }],
       include: {
         _count: { select: { resources: true } },
         solves: { where: { userId }, select: { id: true } },
@@ -119,7 +131,7 @@ export class ChallengesService {
       difficulty?: Difficulty;
       // Optional on update — only sets a new hash if provided.
       flag?: string;
-      keepResourceIds: number[];
+      existingResources: ExistingResourceUpdate[];
       newFiles: NewFile[];
       newLinks: NewLink[];
     },
@@ -135,10 +147,10 @@ export class ChallengesService {
       categoryId = category.id;
     }
 
-    const toDelete = challenge.resources.filter(
-      (r) => !input.keepResourceIds.includes(r.id),
-    );
+    const keepIds = new Set(input.existingResources.map((r) => r.id));
+    const toDelete = challenge.resources.filter((r) => !keepIds.has(r.id));
 
+    // Best-effort file cleanup for FILE resources we're about to drop.
     await Promise.all(
       toDelete
         .filter((r) => r.type === "FILE")
@@ -149,14 +161,38 @@ export class ChallengesService {
 
     const startPosition =
       challenge.resources
-        .filter((r) => input.keepResourceIds.includes(r.id))
+        .filter((r) => keepIds.has(r.id))
         .reduce((max, r) => Math.max(max, r.position), -1) + 1;
 
-    await this.prisma.$transaction([
-      this.prisma.challengeResource.deleteMany({
-        where: { id: { in: toDelete.map((r) => r.id) } },
-      }),
-      this.prisma.challenge.update({
+    // Index original resources by id so we know each one's type — needed to
+    // decide whether to honour the `target` override (LINK only).
+    const originalById = new Map(
+      challenge.resources.map((r) => [r.id, r]),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      if (toDelete.length > 0) {
+        await tx.challengeResource.deleteMany({
+          where: { id: { in: toDelete.map((r) => r.id) } },
+        });
+      }
+
+      // Update each kept resource. We always rewrite the label; we only
+      // accept a new `target` for LINK resources.
+      for (const upd of input.existingResources) {
+        const orig = originalById.get(upd.id);
+        if (!orig) continue;
+        const data: { label: string; target?: string } = { label: upd.label };
+        if (orig.type === "LINK" && upd.target !== undefined) {
+          data.target = upd.target;
+        }
+        await tx.challengeResource.update({
+          where: { id: upd.id },
+          data,
+        });
+      }
+
+      await tx.challenge.update({
         where: { id: challenge.id },
         data: {
           title: input.title ?? undefined,
@@ -176,8 +212,8 @@ export class ChallengesService {
             ),
           },
         },
-      }),
-    ]);
+      });
+    });
 
     return this.getBySlug(slug, -1);
   }

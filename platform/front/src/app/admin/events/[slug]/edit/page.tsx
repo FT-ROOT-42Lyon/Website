@@ -11,6 +11,7 @@ import {
 } from "@ft-root/shared";
 import { api } from "~/lib/api";
 import { useEvents } from "~/lib/events-context";
+import { SearchableSelect } from "~/components/SearchableSelect";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -318,19 +319,18 @@ export default function EditEventPage() {
         l&apos;événement pendant la durée
       </p>
 
-      <div className="event-add-row">
-        <select
-          value={pickedLogin}
-          onChange={(e) => setPickedLogin(e.target.value)}
-        >
-          <option value="">— sélectionner un utilisateur —</option>
-          {memberCandidates.map((u) => (
-            <option key={u.id} value={u.login}>
-              {u.login}
-              {u.displayName ? ` (${u.displayName})` : ""}
-            </option>
-          ))}
-        </select>
+      <SearchableSelect
+        options={memberCandidates.map((u) => ({
+          value: u.login,
+          label: u.displayName ? `${u.login} (${u.displayName})` : u.login,
+          search: [u.login, u.displayName, u.email],
+        }))}
+        value={pickedLogin}
+        onChange={setPickedLogin}
+        placeholder="rechercher un utilisateur..."
+        emptyText="Aucun utilisateur à ajouter"
+      />
+      <div className="event-add-commit">
         <button
           type="button"
           className="btn btn-primary"
@@ -402,18 +402,18 @@ export default function EditEventPage() {
         seulement pendant sa durée
       </p>
 
-      <div className="event-add-row">
-        <select
-          value={pickedChallenge}
-          onChange={(e) => setPickedChallenge(e.target.value)}
-        >
-          <option value="">— sélectionner un challenge —</option>
-          {challengeCandidates.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.category?.name} · {c.title} (+{c.score})
-            </option>
-          ))}
-        </select>
+      <SearchableSelect
+        options={challengeCandidates.map((c) => ({
+          value: c.slug,
+          label: `${c.category?.name ?? ""} · ${c.title} (+${c.score})`,
+          search: [c.title, c.category?.name],
+        }))}
+        value={pickedChallenge}
+        onChange={setPickedChallenge}
+        placeholder="rechercher un challenge..."
+        emptyText="Aucun challenge à ajouter"
+      />
+      <div className="event-add-commit">
         <button
           type="button"
           className="btn btn-primary"
@@ -439,7 +439,13 @@ export default function EditEventPage() {
             <div></div>
             <div className="solve-actions"></div>
           </div>
-          {event.challenges.map((ec) => (
+          {[...event.challenges]
+            .sort(
+              (a, b) =>
+                a.challenge.score - b.challenge.score ||
+                a.challenge.title.localeCompare(b.challenge.title, "fr"),
+            )
+            .map((ec) => (
             <div key={ec.id} className="solve-row">
               <Link
                 href={`/admin/challenges/${ec.challenge.slug}/edit`}

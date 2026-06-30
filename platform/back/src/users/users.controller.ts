@@ -56,6 +56,8 @@ function serialize(user: {
   avatarUrl: string | null;
   isStaff: boolean;
   score: number;
+  rootmeId: number | null;
+  rootmeUsername: string | null;
   createdAt: Date;
 }) {
   return {
@@ -66,6 +68,8 @@ function serialize(user: {
     avatarUrl: user.avatarUrl,
     isStaff: user.isStaff,
     score: user.score,
+    rootmeId: user.rootmeId,
+    rootmeUsername: user.rootmeUsername,
     createdAt: user.createdAt.toISOString(),
   };
 }

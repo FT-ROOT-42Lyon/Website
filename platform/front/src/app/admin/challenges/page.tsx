@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DIFFICULTY_LABELS, type ChallengeSummary } from "@ft-root/shared";
 import { api } from "~/lib/api";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 export default function AdminChallengesPage() {
   const [challenges, setChallenges] = useState<ChallengeSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     api<ChallengeSummary[]>("/challenges")
@@ -40,6 +42,12 @@ export default function AdminChallengesPage() {
           <p>Aucun challenge sur la plateforme pour l&apos;instant.</p>
         </div>
       ) : (
+        <>
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="rechercher un challenge..."
+        />
         <div className="chal-admin-table">
           <div className="chal-admin-row chal-admin-head">
             <div>titre</div>
@@ -48,7 +56,9 @@ export default function AdminChallengesPage() {
             <div className="chal-admin-num">score</div>
             <div className="chal-admin-num">ressources</div>
           </div>
-          {challenges.map((c) => (
+          {challenges
+            .filter((c) => searchMatch([c.title, c.description, c.category?.name], query))
+            .map((c) => (
             <Link
               key={c.id}
               href={`/admin/challenges/${c.slug}/edit`}
@@ -77,6 +87,7 @@ export default function AdminChallengesPage() {
             </Link>
           ))}
         </div>
+        </>
       )}
     </>
   );

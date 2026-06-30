@@ -32,7 +32,8 @@ export default function EventDetailPage() {
       .catch(() => setError("Événement introuvable"));
   }, [slug]);
 
-  // Group challenges by category, preserving insertion order per category.
+  // Group challenges by category, sort categories alphabetically and items
+  // within each category by ascending point value.
   const grouped = useMemo(() => {
     if (!event) return [];
     const map = new Map<
@@ -52,9 +53,18 @@ export default function EventDetailPage() {
       }
       map.get(key)!.items.push(ec);
     }
-    return [...map.values()].sort((a, b) =>
-      a.category.name.localeCompare(b.category.name, "fr"),
-    );
+    return [...map.values()]
+      .sort((a, b) =>
+        a.category.name.localeCompare(b.category.name, "fr"),
+      )
+      .map((g) => ({
+        ...g,
+        items: [...g.items].sort(
+          (a, b) =>
+            a.challenge.score - b.challenge.score ||
+            a.challenge.title.localeCompare(b.challenge.title, "fr"),
+        ),
+      }));
   }, [event]);
 
   if (error) {

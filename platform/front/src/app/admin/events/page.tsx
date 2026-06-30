@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { isEventActive, useEvents } from "~/lib/events-context";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 function formatRange(startsAt: string, endsAt: string): string {
   const fmt = new Intl.DateTimeFormat("fr-FR", {
@@ -16,6 +18,10 @@ function formatRange(startsAt: string, endsAt: string): string {
 
 export default function AdminEventsPage() {
   const { events, loading } = useEvents();
+  const [query, setQuery] = useState("");
+  const filtered = events.filter((e) =>
+    searchMatch([e.name, e.description], query),
+  );
 
   return (
     <>
@@ -36,38 +42,51 @@ export default function AdminEventsPage() {
           <p>Aucun événement pour l&apos;instant.</p>
         </div>
       ) : (
-        <div className="cat-table">
-          <div className="cat-row cat-row-head event-admin-row">
-            <div>nom</div>
-            <div>période</div>
-            <div className="cat-count-col">statut</div>
-          </div>
-          {events.map((e) => {
-            const active = isEventActive(e);
-            const upcoming = Date.parse(e.startsAt) > Date.now();
-            return (
-              <Link
-                key={e.id}
-                href={`/admin/events/${e.slug}/edit`}
-                className="cat-row cat-row-link event-admin-row"
-              >
-                <div>{e.name}</div>
-                <div className="cat-dim">
-                  {formatRange(e.startsAt, e.endsAt)}
-                </div>
-                <div className="cat-count-col">
-                  {active ? (
-                    <span className="event-card-badge">en cours</span>
-                  ) : upcoming ? (
-                    <span className="event-status-upcoming">à venir</span>
-                  ) : (
-                    <span className="event-status-past">terminé</span>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="rechercher un événement..."
+          />
+          {filtered.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontFamily: "var(--mono)" }}>
+              Aucun événement ne correspond.
+            </p>
+          ) : (
+            <div className="cat-table">
+              <div className="cat-row cat-row-head event-admin-row">
+                <div>nom</div>
+                <div>période</div>
+                <div className="cat-count-col">statut</div>
+              </div>
+              {filtered.map((e) => {
+                const active = isEventActive(e);
+                const upcoming = Date.parse(e.startsAt) > Date.now();
+                return (
+                  <Link
+                    key={e.id}
+                    href={`/admin/events/${e.slug}/edit`}
+                    className="cat-row cat-row-link event-admin-row"
+                  >
+                    <div>{e.name}</div>
+                    <div className="cat-dim">
+                      {formatRange(e.startsAt, e.endsAt)}
+                    </div>
+                    <div className="cat-count-col">
+                      {active ? (
+                        <span className="event-card-badge">en cours</span>
+                      ) : upcoming ? (
+                        <span className="event-status-upcoming">à venir</span>
+                      ) : (
+                        <span className="event-status-past">terminé</span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </>
   );

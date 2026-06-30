@@ -44,7 +44,9 @@ export default function ChallengePage() {
 
   async function submitFlag(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!challenge || !flag.trim()) return;
+    // Send whatever the user typed verbatim — leading/trailing whitespace may
+    // be part of the actual flag.
+    if (!challenge || flag === "") return;
     setState({ kind: "submitting" });
 
     try {
@@ -156,10 +158,28 @@ export default function ChallengePage() {
         )}
 
         <p className="section-title" style={{ marginTop: "3rem" }}>
-          Soumettre un flag
+          {challenge.externalUrl ? "Validation" : "Soumettre un flag"}
         </p>
 
-        {!challenge.hasFlag ? (
+        {challenge.externalUrl ? (
+          <div className="empty-card">
+            <p className="empty-tag">// root-me</p>
+            <p style={{ marginBottom: "1rem" }}>
+              Ce challenge est hébergé sur Root-Me. Valide-le sur leur
+              plateforme — ta validation est répliquée ici lors de la prochaine
+              synchronisation Root-Me (manuelle depuis ton profil ou
+              automatique au prochain sync admin).
+            </p>
+            <a
+              href={challenge.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
+            >
+              Ouvrir sur root-me.org ↗
+            </a>
+          </div>
+        ) : !challenge.hasFlag ? (
           <div className="empty-card">
             <p className="empty-tag">// no_flag</p>
             <p>Aucun flag n&apos;a encore été configuré pour ce challenge.</p>
@@ -188,7 +208,7 @@ export default function ChallengePage() {
               <button
                 type="submit"
                 className="btn btn-primary flag-submit"
-                disabled={state.kind === "submitting" || !flag.trim()}
+                disabled={state.kind === "submitting" || flag === ""}
               >
                 {state.kind === "submitting" ? "..." : "Soumettre →"}
               </button>

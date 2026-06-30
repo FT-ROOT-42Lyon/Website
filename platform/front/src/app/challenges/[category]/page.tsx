@@ -12,6 +12,7 @@ import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
 import { Footer } from "~/components/Footer";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 export default function CategoryPage() {
   const { category: slug } = useParams<{ category: string }>();
@@ -21,6 +22,7 @@ export default function CategoryPage() {
   const [category, setCategory] = useState<Category | null>(null);
   const [challenges, setChallenges] = useState<ChallengeSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -96,32 +98,52 @@ export default function CategoryPage() {
             </p>
           </div>
         ) : (
-          <div className="chal-list">
-            <div className="chal-list-row chal-list-head">
-              <div>statut</div>
-              <div>titre</div>
-              <div>difficulté</div>
-              <div className="chal-list-score">score</div>
-            </div>
-            {challenges.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/challenges/${category.slug}/${c.slug}`}
-                className={`chal-list-row chal-list-link ${c.solved ? "is-solved" : "is-unsolved"}`}
-              >
-                <div className="chal-list-status">
-                  {c.solved ? "✓" : "✗"}
-                </div>
-                <div className="chal-list-title">{c.title}</div>
-                <div>
-                  <span className={`diff-badge diff-${c.difficulty}`}>
-                    {DIFFICULTY_LABELS[c.difficulty]}
-                  </span>
-                </div>
-                <div className="chal-list-score">{c.score} pts</div>
-              </Link>
-            ))}
-          </div>
+          (() => {
+            const filtered = challenges.filter((c) => searchMatch([c.title], query));
+            return (
+              <>
+                <SearchBar
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="rechercher un challenge..."
+                />
+                {filtered.length === 0 ? (
+                  <p
+                    style={{ color: "var(--muted)", fontFamily: "var(--mono)" }}
+                  >
+                    Aucun challenge ne correspond.
+                  </p>
+                ) : (
+                  <div className="chal-list">
+                    <div className="chal-list-row chal-list-head">
+                      <div>statut</div>
+                      <div>titre</div>
+                      <div>difficulté</div>
+                      <div className="chal-list-score">score</div>
+                    </div>
+                    {filtered.map((c) => (
+                      <Link
+                        key={c.slug}
+                        href={`/challenges/${category.slug}/${c.slug}`}
+                        className={`chal-list-row chal-list-link ${c.solved ? "is-solved" : "is-unsolved"}`}
+                      >
+                        <div className="chal-list-status">
+                          {c.solved ? "✓" : "✗"}
+                        </div>
+                        <div className="chal-list-title">{c.title}</div>
+                        <div>
+                          <span className={`diff-badge diff-${c.difficulty}`}>
+                            {DIFFICULTY_LABELS[c.difficulty]}
+                          </span>
+                        </div>
+                        <div className="chal-list-score">{c.score} pts</div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()
         )}
 
         <p className="section-title" style={{ marginTop: "3rem" }}>

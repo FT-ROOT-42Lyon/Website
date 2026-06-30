@@ -60,6 +60,7 @@ function serialize(c: {
   name: string;
   description: string;
   exploitDescription: string;
+  rootmeId: number | null;
   createdAt: Date;
   _count?: { challenges: number };
 }) {
@@ -70,6 +71,7 @@ function serialize(c: {
     description: c.description,
     exploitDescription: c.exploitDescription,
     challengeCount: c._count?.challenges ?? 0,
+    rootmeId: c.rootmeId,
     createdAt: c.createdAt.toISOString(),
   };
 }

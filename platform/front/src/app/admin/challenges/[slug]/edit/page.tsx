@@ -6,7 +6,6 @@ import {
   DIFFICULTIES,
   DIFFICULTY_LABELS,
   type Challenge,
-  type ChallengeResource,
   type Difficulty,
 } from "@ft-root/shared";
 import { api } from "~/lib/api";
@@ -20,6 +19,18 @@ interface FileSlot {
 interface LinkSlot {
   label: string;
   url: string;
+}
+
+// A pre-existing resource, editable in place. `href` is the original download
+// URL (for FILE) or external URL (for LINK), kept around for the row's link
+// icon so admins can still preview the underlying target.
+interface ExistingSlot {
+  id: number;
+  type: "FILE" | "LINK";
+  label: string;
+  target: string;
+  href: string;
+  kept: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -37,8 +48,7 @@ export default function EditChallengePage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("MEDIUM");
   const [flag, setFlag] = useState("");
   const [hasFlag, setHasFlag] = useState(false);
-  const [existing, setExisting] = useState<ChallengeResource[]>([]);
-  const [keepIds, setKeepIds] = useState<number[]>([]);
+  const [existingSlots, setExistingSlots] = useState<ExistingSlot[]>([]);
   const [files, setFiles] = useState<FileSlot[]>([]);
   const [links, setLinks] = useState<LinkSlot[]>([]);
 
@@ -55,16 +65,31 @@ export default function EditChallengePage() {
         setScore(String(c.score));
         setDifficulty(c.difficulty);
         setHasFlag(c.hasFlag);
-        setExisting(c.resources);
-        setKeepIds(c.resources.map((r) => r.id));
+        // Files first, links second, then turn into editable slots.
+        const sorted = [
+          ...c.resources.filter((r) => r.type === "FILE"),
+          ...c.resources.filter((r) => r.type === "LINK"),
+        ];
+        setExistingSlots(
+          sorted.map((r) => ({
+            id: r.id,
+            type: r.type,
+            label: r.label,
+            // For LINK, href is also the target. For FILE, target is the
+            // on-disk filename (not editable here, but useful to display).
+            target: r.type === "LINK" ? r.href : r.href.replace(/^\/uploads\//, ""),
+            href: r.href,
+            kept: true,
+          })),
+        );
         setLoaded(true);
       })
       .catch(() => setError("Challenge introuvable"));
   }, [slug]);
 
-  function toggleKeep(id: number) {
-    setKeepIds((cur) =>
-      cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+  function updateExisting(i: number, patch: Partial<ExistingSlot>) {
+    setExistingSlots((cur) =>
+      cur.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
     );
   }
 
@@ -113,15 +138,37 @@ export default function EditChallengePage() {
       }
     }
 
+    // Validate edits on existing LINK resources (URL still required + scheme).
+    for (const s of existingSlots) {
+      if (!s.kept) continue;
+      if (s.type === "LINK") {
+        if (!s.target.trim()) {
+          setError("Chaque lien existant doit avoir une URL");
+          return;
+        }
+        if (!/^https?:\/\//i.test(s.target)) {
+          setError("Les URLs doivent commencer par http:// ou https://");
+          return;
+        }
+      }
+    }
+
+    const existingResources = existingSlots
+      .filter((s) => s.kept)
+      .map((s) =>
+        s.type === "LINK"
+          ? { id: s.id, label: s.label, target: s.target }
+          : { id: s.id, label: s.label },
+      );
+
     const fd = new FormData();
     fd.append("title", title);
     fd.append("description", description);
     fd.append("categorySlug", categorySlug);
     fd.append("score", score);
     fd.append("difficulty", difficulty);
-    // Empty flag = keep the existing hash; only set if admin typed a new one.
-    if (flag.trim()) fd.append("flag", flag);
-    fd.append("keepResourceIds", JSON.stringify(keepIds));
+    if (flag !== "") fd.append("flag", flag);
+    fd.append("existingResources", JSON.stringify(existingResources));
     fd.append("newLinks", JSON.stringify(links));
     fd.append("fileLabels", JSON.stringify(files.map((f) => f.label)));
     files.forEach((f) => fd.append("files", f.file));
@@ -148,8 +195,6 @@ export default function EditChallengePage() {
     return <p className="callback-mono callback-blink">Chargement</p>;
   }
 
-  const existingFiles = existing.filter((r) => r.type === "FILE");
-  const existingLinks = existing.filter((r) => r.type === "LINK");
 
   return (
     <>
@@ -242,49 +287,74 @@ export default function EditChallengePage() {
           </small>
         </label>
 
-        {existing.length > 0 && (
+        {existingSlots.length > 0 && (
           <div className="form-field">
             <span>Ressources existantes</span>
-            <small>Décoche celles à supprimer.</small>
+            <small>
+              Modifie le libellé et (pour les liens) l&apos;URL en place.
+              Décoche celles à supprimer.
+            </small>
             <div className="form-slots">
-              {[...existingFiles, ...existingLinks].map((r) => {
-                const kept = keepIds.includes(r.id);
+              {existingSlots.map((s, i) => {
+                const isLink = s.type === "LINK";
+                const previewHref = isLink ? s.href : `${API_URL}${s.href}`;
                 return (
-                  <label
-                    key={r.id}
-                    className={`form-slot existing-slot${kept ? "" : " existing-slot-removed"}`}
+                  <div
+                    key={s.id}
+                    className={`existing-slot-edit${s.kept ? "" : " existing-slot-removed"}`}
                   >
                     <input
                       type="checkbox"
-                      checked={kept}
-                      onChange={() => toggleKeep(r.id)}
+                      checked={s.kept}
+                      onChange={(e) =>
+                        updateExisting(i, { kept: e.target.checked })
+                      }
+                      title={
+                        s.kept
+                          ? "Décoche pour supprimer cette ressource"
+                          : "Coche pour conserver cette ressource"
+                      }
                     />
-                    <span className="existing-label">
-                      <span className="existing-tag">
-                        {r.type === "FILE" ? "file" : "link"}
-                      </span>{" "}
-                      {r.label}
+                    <span className="existing-tag">
+                      {isLink ? "link" : "file"}
                     </span>
-                    {r.type === "FILE" ? (
-                      <a
-                        href={`${API_URL}${r.href}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="existing-link"
-                      >
-                        ↓
-                      </a>
+                    <input
+                      type="text"
+                      value={s.label}
+                      placeholder="Libellé du bouton"
+                      disabled={!s.kept}
+                      onChange={(e) =>
+                        updateExisting(i, { label: e.target.value })
+                      }
+                    />
+                    {isLink ? (
+                      <input
+                        type="url"
+                        value={s.target}
+                        placeholder="https://..."
+                        disabled={!s.kept}
+                        onChange={(e) =>
+                          updateExisting(i, { target: e.target.value })
+                        }
+                      />
                     ) : (
-                      <a
-                        href={r.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="existing-link"
+                      <span
+                        className="existing-filename"
+                        title={s.target}
                       >
-                        ↗
-                      </a>
+                        {s.target}
+                      </span>
                     )}
-                  </label>
+                    <a
+                      href={previewHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="existing-link"
+                      title={isLink ? "Ouvrir le lien" : "Télécharger"}
+                    >
+                      {isLink ? "↗" : "↓"}
+                    </a>
+                  </div>
                 );
               })}
             </div>

@@ -16,6 +16,9 @@ export interface MeResponse {
   avatarUrl: string | null;
   isStaff: boolean;
   score: number;
+  // Optional Root-Me linkage.
+  rootmeId: number | null;
+  rootmeUsername: string | null;
   createdAt: string;
 }
 
@@ -35,6 +38,8 @@ export interface Category {
   description: string;
   exploitDescription: string;
   challengeCount: number;
+  // Non-null when the category mirrors a Root-Me rubrique.
+  rootmeId: number | null;
   createdAt: string;
 }
 
@@ -79,6 +84,10 @@ export interface ChallengeSummary {
   createdAt: string;
   solved: boolean;
   hasFlag: boolean;
+  // Non-null when mirroring a Root-Me id_challenge.
+  rootmeId: number | null;
+  // External URL when the challenge is solved on another platform (Root-Me).
+  externalUrl: string | null;
   category?: { slug: string; name: string };
   resourceCount?: number;
 }

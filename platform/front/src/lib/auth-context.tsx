@@ -17,6 +17,8 @@ export interface Me {
   avatarUrl: string | null;
   isStaff: boolean;
   score: number;
+  rootmeId: number | null;
+  rootmeUsername: string | null;
   createdAt: string;
 }
 

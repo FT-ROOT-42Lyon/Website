@@ -5,12 +5,14 @@ import Link from "next/link";
 import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
 import type { Me } from "~/lib/auth-context";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 export default function AdminUsersPage() {
   const { me } = useAuth();
   const [users, setUsers] = useState<Me[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingLogin, setPendingLogin] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   // Pre-create form state
   const [newLogin, setNewLogin] = useState("");
@@ -115,6 +117,12 @@ export default function AdminUsersPage() {
       {!users ? (
         <p className="callback-mono callback-blink">Chargement</p>
       ) : (
+        <>
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="rechercher login, nom, email..."
+          />
         <div className="user-table">
           <div className="user-row user-row-head">
             <div>login</div>
@@ -122,7 +130,7 @@ export default function AdminUsersPage() {
             <div>email</div>
             <div className="user-role-col">rôle</div>
           </div>
-          {users.map((u) => {
+          {users.filter((u) => searchMatch([u.login, u.displayName, u.email], query)).map((u) => {
             const isSelf = me?.id === u.id;
             return (
               <div key={u.id} className="user-row">
@@ -161,7 +169,16 @@ export default function AdminUsersPage() {
               Aucun utilisateur enregistré pour l&apos;instant.
             </p>
           )}
+          {users.length > 0 &&
+            users.filter((u) =>
+              searchMatch([u.login, u.displayName, u.email], query),
+            ).length === 0 && (
+              <p style={{ color: "var(--muted)", padding: "1rem" }}>
+                Aucun utilisateur ne correspond.
+              </p>
+            )}
         </div>
+        </>
       )}
     </>
   );

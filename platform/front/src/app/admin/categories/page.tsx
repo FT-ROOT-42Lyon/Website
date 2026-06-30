@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Category } from "@ft-root/shared";
 import { api } from "~/lib/api";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     api<Category[]>("/categories")
@@ -35,13 +37,21 @@ export default function AdminCategoriesPage() {
       {!categories ? (
         <p className="callback-mono callback-blink">Chargement</p>
       ) : (
+        <>
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="rechercher une catégorie..."
+        />
         <div className="cat-table cat-table-noslug">
           <div className="cat-row cat-row-head">
             <div>nom</div>
             <div>exploits</div>
             <div className="cat-count-col">challenges</div>
           </div>
-          {categories.map((c) => (
+          {categories
+            .filter((c) => searchMatch([c.name, c.description, c.exploitDescription], query))
+            .map((c) => (
             <Link
               key={c.id}
               href={`/admin/categories/${c.slug}/edit`}
@@ -53,6 +63,7 @@ export default function AdminCategoriesPage() {
             </Link>
           ))}
         </div>
+        </>
       )}
     </>
   );

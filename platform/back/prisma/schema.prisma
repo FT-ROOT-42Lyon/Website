@@ -18,6 +18,10 @@ model User {
   isStaff     Boolean   @default(false) @map("is_staff")
   // Global score = sum of every solve, regardless of event.
   score       Int       @default(0)
+  // Optional Root-Me account linkage. `rootmeId` is the numeric `id_auteur`
+  // returned by the Root-Me API; `rootmeUsername` is the display name.
+  rootmeId       Int?    @unique @map("rootme_id")
+  rootmeUsername String? @map("rootme_username")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -58,6 +62,8 @@ model Category {
   name               String   @unique
   description        String   @default("")
   exploitDescription String   @default("") @map("exploit_description")
+  // Non-null when the row mirrors a Root-Me rubrique (id_rubrique).
+  rootmeId           Int?     @unique @map("rootme_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -75,6 +81,11 @@ model Challenge {
   score       Int        @default(100)
   difficulty  Difficulty @default(MEDIUM)
   flagHash    String?    @map("flag_hash")
+  // Non-null when mirroring a Root-Me id_challenge. Such challenges aren't
+  // solved through our flag form — they're solved on root-me.org.
+  rootmeId    Int?       @unique @map("rootme_id")
+  // External URL displayed in lieu of the flag form when set.
+  externalUrl String?    @map("external_url")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
@@ -176,3 +187,4 @@ model ChallengeSolve {
   @@unique([userId, challengeId])
   @@map("challenge_solves")
 }
+

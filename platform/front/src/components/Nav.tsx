@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "~/lib/auth-context";
 import { useCategories } from "~/lib/categories-context";
 import { isEventActive, useEvents } from "~/lib/events-context";
+import { useRootme } from "~/lib/rootme-context";
 
 export function Nav() {
   const { me, loading, logout } = useAuth();
   const { categories } = useCategories();
   const { events } = useEvents();
+  const { categories: rootmeCategories } = useRootme();
   const router = useRouter();
   const activeEvents = events.filter((e) => isEventActive(e));
 
@@ -66,6 +68,26 @@ export function Nav() {
                       href={`/leaderboard/events/${e.slug}`}
                     >
                       {e.name}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="nav-dropdown">
+              <Link href="/rootme" className="nav-dropdown-trigger">
+                Root-Me <span className="nav-chevron">▾</span>
+              </Link>
+              <div className="nav-dropdown-menu">
+                <Link href="/rootme" className="nav-dropdown-head">
+                  Toutes les catégories
+                </Link>
+                {rootmeCategories.length === 0 ? (
+                  <span className="nav-dropdown-empty">non synchronisé</span>
+                ) : (
+                  rootmeCategories.map((c) => (
+                    <Link key={c.slug} href={`/challenges/${c.slug}`}>
+                      {c.name.replace(/^RootMe - /, "")}
                     </Link>
                   ))
                 )}

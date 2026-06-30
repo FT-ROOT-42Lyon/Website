@@ -10,6 +10,7 @@ import { api } from "~/lib/api";
 import { useAuth } from "~/lib/auth-context";
 import { useEvents } from "~/lib/events-context";
 import { Footer } from "~/components/Footer";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 export default function GlobalLeaderboardPage() {
   const { me, loading: authLoading } = useAuth();
@@ -18,6 +19,7 @@ export default function GlobalLeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
   const [timeline, setTimeline] = useState<TimelineSeries[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -62,7 +64,18 @@ export default function GlobalLeaderboardPage() {
         ) : !entries ? (
           <p className="callback-mono callback-blink">Chargement</p>
         ) : (
-          <LeaderboardTable entries={entries} />
+          <>
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="rechercher un utilisateur..."
+            />
+            <LeaderboardTable
+              entries={entries.filter((e) =>
+                searchMatch([e.user.login, e.user.displayName], query),
+              )}
+            />
+          </>
         )}
 
         <p className="section-title" style={{ marginTop: "3rem" }}>

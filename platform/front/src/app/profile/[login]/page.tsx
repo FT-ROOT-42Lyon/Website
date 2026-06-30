@@ -10,6 +10,7 @@ import { Footer } from "~/components/Footer";
 import { ScoreTimeline } from "~/components/charts/ScoreTimeline";
 import { DifficultyDonut } from "~/components/charts/DifficultyDonut";
 import { CategoryRings } from "~/components/charts/CategoryRings";
+import { RootmeLinkCard } from "~/components/RootmeLinkCard";
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -127,6 +128,9 @@ export default function UserProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* ── Root-Me link (self only) ────────────────────────────── */}
+        {isSelf && <RootmeLinkCard />}
 
         {/* ── Event participations ────────────────────────────────── */}
         <div className="profile-card">

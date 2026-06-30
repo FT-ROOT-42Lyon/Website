@@ -18,7 +18,12 @@ import { IsString, MaxLength, MinLength } from "class-validator";
 import { diskStorage } from "multer";
 import { randomBytes } from "crypto";
 import { extname } from "path";
-import { ChallengesService, NewFile, NewLink } from "./challenges.service";
+import {
+  ChallengesService,
+  ExistingResourceUpdate,
+  NewFile,
+  NewLink,
+} from "./challenges.service";
 import { JwtAuthGuard } from "../core/guards/jwt-auth.guard";
 import { StaffGuard } from "../core/guards/staff.guard";
 import { UPLOADS_DIR } from "../core/uploads";
@@ -66,6 +71,8 @@ interface SerializableChallenge {
   score: number;
   difficulty: Difficulty;
   flagHash?: string | null;
+  rootmeId?: number | null;
+  externalUrl?: string | null;
   createdAt: Date;
   category?: { slug: string; name: string };
   resources?: Array<{
@@ -90,6 +97,8 @@ function serializeChallenge(c: SerializableChallenge) {
     createdAt: c.createdAt.toISOString(),
     solved: (c.solves?.length ?? 0) > 0,
     hasFlag: Boolean(c.flagHash),
+    rootmeId: c.rootmeId ?? null,
+    externalUrl: c.externalUrl ?? null,
     category: c.category
       ? { slug: c.category.slug, name: c.category.name }
       : undefined,
@@ -134,8 +143,15 @@ const isLinkArr = (v: unknown): v is NewLink[] =>
 const isStringArr = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((s) => typeof s === "string");
 
-const isNumberArr = (v: unknown): v is number[] =>
-  Array.isArray(v) && v.every((n) => Number.isInteger(n));
+const isExistingResourceArr = (v: unknown): v is ExistingResourceUpdate[] =>
+  Array.isArray(v) &&
+  v.every(
+    (r: any) =>
+      r &&
+      Number.isInteger(r.id) &&
+      typeof r.label === "string" &&
+      (r.target === undefined || typeof r.target === "string"),
+  );
 
 function buildFileSlots(
   files: Express.Multer.File[] | undefined,
@@ -221,13 +237,15 @@ export class ChallengesController {
     const title = (body.title ?? "").trim();
     const description = (body.description ?? "").trim();
     const categorySlug = (body.categorySlug ?? "").trim();
-    const flag = (body.flag ?? "").trim();
+    // Flag is preserved verbatim — including any leading/trailing whitespace,
+    // which may be part of the actual answer.
+    const flag = body.flag ?? "";
     if (!title || !categorySlug) {
       throw new BadRequestException(
         "title and categorySlug are required",
       );
     }
-    if (!flag) {
+    if (flag === "") {
       throw new BadRequestException("Le flag est requis à la création");
     }
 
@@ -250,6 +268,12 @@ export class ChallengesController {
     );
   }
 
+  // multipart/form-data:
+  //   - existingResources: JSON [{ id, label, target? }]. Ids in the list are
+  //     kept (label/target updated as needed). Ids missing from the list are
+  //     destroyed; FILE resources also have their file removed from disk.
+  //   - newLinks: JSON [{ label, url }] — fresh links to append.
+  //   - files[] + fileLabels: JSON [label, ...] — fresh files to append.
   @Patch(":slug")
   @UseGuards(StaffGuard)
   @UseInterceptors(uploadInterceptor)
@@ -264,12 +288,15 @@ export class ChallengesController {
       score?: string;
       difficulty?: string;
       flag?: string;
-      keepResourceIds?: string;
+      existingResources?: string;
       newLinks?: string;
       fileLabels?: string;
     },
   ) {
-    const keepResourceIds = parseJsonArray(body.keepResourceIds, isNumberArr);
+    const existingResources = parseJsonArray(
+      body.existingResources,
+      isExistingResourceArr,
+    );
     const newLinks = parseJsonArray(body.newLinks, isLinkArr);
     const newFiles = buildFileSlots(files, body.fileLabels);
 
@@ -280,8 +307,9 @@ export class ChallengesController {
         categorySlug: body.categorySlug?.trim() || undefined,
         score: parseScore(body.score),
         difficulty: parseDifficulty(body.difficulty),
-        flag: body.flag?.trim() ? body.flag.trim() : undefined,
-        keepResourceIds,
+        flag:
+          body.flag !== undefined && body.flag !== "" ? body.flag : undefined,
+        existingResources,
         newFiles,
         newLinks,
       }),

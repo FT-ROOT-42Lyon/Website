@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { eventStatus } from "@ft-root/shared";
 import { useEvents } from "~/lib/events-context";
 import { Footer } from "~/components/Footer";
+import { SearchBar, searchMatch } from "~/components/SearchBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -19,6 +21,8 @@ function formatRange(startsAt: string, endsAt: string): string {
 
 export default function EventsListPage() {
   const { events, loading } = useEvents();
+  const [query, setQuery] = useState("");
+  const filtered = events.filter((e) => searchMatch([e.name, e.description], query));
 
   return (
     <>
@@ -42,8 +46,21 @@ export default function EventsListPage() {
             <p>Aucun événement publié pour l&apos;instant.</p>
           </div>
         ) : (
+          <>
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="rechercher un événement..."
+            />
+            {filtered.length === 0 ? (
+              <p
+                style={{ color: "var(--muted)", fontFamily: "var(--mono)" }}
+              >
+                Aucun événement ne correspond.
+              </p>
+            ) : (
           <div className="event-grid">
-            {events.map((e) => {
+            {filtered.map((e) => {
               const status = eventStatus(e);
               return (
                 <Link
@@ -85,6 +102,8 @@ export default function EventsListPage() {
               );
             })}
           </div>
+            )}
+          </>
         )}
       </div>
 

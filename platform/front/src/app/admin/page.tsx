@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RootmeAdminSync } from "~/components/RootmeAdminSync";
 
 export default function AdminHomePage() {
   return (
@@ -35,6 +36,10 @@ export default function AdminHomePage() {
           </p>
           <span className="card-link">Ouvrir →</span>
         </Link>
+      </div>
+
+      <div style={{ marginTop: "2.5rem", maxWidth: 720 }}>
+        <RootmeAdminSync />
       </div>
     </>
   );

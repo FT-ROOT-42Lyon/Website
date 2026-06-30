@@ -15,6 +15,10 @@ const EnvSchema = z.object({
   API42_CLIENT_UID: z.string().min(1),
   API42_CLIENT_SECRET: z.string().min(1),
 
+  // Root-Me API session cookie value (Préférences → API on root-me.org).
+  // Optional — the Root-Me module just refuses to sync if absent.
+  ROOTME_API_KEY: z.string().optional(),
+
   BASE_FRONT_URL: z.string().url(),
 });
 
